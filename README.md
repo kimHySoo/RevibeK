@@ -2,12 +2,19 @@
 
 > AI로 되살린 K-POP 감성 + 개인형 위로 라디오 서비스
 
-
 ---
 ## 반드시 먼저 실행할것!!!!
 ```
 git pull origin develop
 ```
+
+## Data Sources
+
+Music tempo and key information provided by GetSongBPM.
+
+https://getsongbpm.com
+
+
 ## 🛠 기술 스택
 
 | 구분 | 기술 |
