@@ -12,11 +12,11 @@
         SELECT id FROM youtube_channels WHERE channel_id = #{channelId}
     </select>
 
-    <insert id="insertVideo" parameterType="com.ssafy.revibek.youtube.dto.YoutubeVideoDto">
-        INSERT IGNORE INTO youtube_videos_raw
-            (youtube_channel_id, video_id, video_url, video_title, published_at)
-        VALUES
-            (#{youtubeChannelId}, #{videoId}, #{videoUrl}, #{videoTitle}, #{publishedAt})
-    </insert>
+	<insert id="insertVideo" parameterType="com.ssafy.revibek.youtube.dto.YoutubeVideoDto">
+	    INSERT IGNORE INTO youtube_videos_raw
+	        (youtube_channel_id, video_id, video_url, video_title, duration_seconds, published_at)
+	    VALUES
+	        (#{youtubeChannelId}, #{videoId}, #{videoUrl}, #{videoTitle}, #{durationSeconds}, #{publishedAt})
+	</insert>
 
 </mapper>
