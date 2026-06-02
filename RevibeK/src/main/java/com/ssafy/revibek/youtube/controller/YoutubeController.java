@@ -15,11 +15,5 @@ public class YoutubeController {
 
     private final YoutubeService youtubeService;
 
-    // POST /api/youtube/collect
-    // 한 번만 호출하면 전체 채널 수집
-    @PostMapping("/collect")
-    public ResponseEntity<String> collect() {
-        youtubeService.collectAll();
-        return ResponseEntity.ok("수집 완료");
-    }
+
 }
