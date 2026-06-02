@@ -2,6 +2,9 @@ from fastapi import FastAPI
 
 app = FastAPI()
 
+# uvicorn app.main:app --reload
 @app.get("/")
-def root():
-    return {"message": "RevibeK AI Server"}
+async def welcome() -> dict:
+    return {
+        "message": "Hello World!"
+    }
