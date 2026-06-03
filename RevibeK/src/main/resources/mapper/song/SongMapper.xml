@@ -1,13 +1,11 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper
-  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.ssafy.revibek.song.mapper.SongDao">
 
-
-    <!-- ResultMap — DB 컬럼 ↔ DTO 필드 매핑 -->
-	<resultMap id="SongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
+    <!-- ResultMap -->
+    <resultMap id="SongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
         <id     property="id"              column="id"/>
         <result property="title"           column="title"/>
         <result property="artist"          column="artist"/>
@@ -23,6 +21,14 @@
         <result property="scoreUpdatedAt"  column="score_updated_at"/>
         <result property="releasedAt"      column="released_at"/>
         <result property="createdAt"       column="created_at"/>
+        <!-- 분석 필드 추가 -->
+        <result property="durationSeconds" column="duration_seconds"/>
+        <result property="bpm"             column="bpm"/>
+        <result property="energy"          column="energy"/>
+        <result property="danceability"    column="danceability"/>
+        <result property="loudness"        column="loudness"/>
+        <result property="musicalKey"      column="musical_key"/>
+        <result property="musicalScale"    column="musical_scale"/>
     </resultMap>
 
     <!-- 노래 등록 -->
@@ -32,13 +38,19 @@
             youtube_url, youtube_id,
             view_count, like_count,
             trend_score, score,
-            released_at, created_at
+            released_at, created_at,
+            duration_seconds, bpm, energy,
+            danceability, loudness,
+            musical_key, musical_scale
         ) VALUES (
             UUID(), #{title}, #{artist}, #{genre}, #{era}, #{type},
             #{youtubeUrl}, #{youtubeId},
             #{viewCount}, #{likeCount},
             #{trendScore}, #{score},
-            #{releasedAt}, NOW()
+            #{releasedAt}, NOW(),
+            #{durationSeconds}, #{bpm}, #{energy},
+            #{danceability}, #{loudness},
+            #{musicalKey}, #{musicalScale}
         )
     </insert>
 
@@ -80,23 +92,30 @@
         LIMIT 10
     </select>
 
-    <!-- 노래 정보 수정 -->
+    <!-- 노래 수정 (분석 필드 포함) -->
     <update id="updateSong" parameterType="com.ssafy.revibek.song.dto.SongDto">
         UPDATE songs
         SET
-            title           = #{title},
-            artist          = #{artist},
-            genre           = #{genre},
-            era             = #{era},
-            type            = #{type},
-            youtube_url     = #{youtubeUrl},
-            youtube_id      = #{youtubeId},
-            view_count      = #{viewCount},
-            like_count      = #{likeCount},
-            trend_score     = #{trendScore},
-            score           = #{score},
+            title            = #{title},
+            artist           = #{artist},
+            genre            = #{genre},
+            era              = #{era},
+            type             = #{type},
+            youtube_url      = #{youtubeUrl},
+            youtube_id       = #{youtubeId},
+            view_count       = #{viewCount},
+            like_count       = #{likeCount},
+            trend_score      = #{trendScore},
+            score            = #{score},
             score_updated_at = NOW(),
-            released_at     = #{releasedAt}
+            released_at      = #{releasedAt},
+            duration_seconds = #{durationSeconds},
+            bpm              = #{bpm},
+            energy           = #{energy},
+            danceability     = #{danceability},
+            loudness         = #{loudness},
+            musical_key      = #{musicalKey},
+            musical_scale    = #{musicalScale}
         WHERE id = #{id}
     </update>
 
