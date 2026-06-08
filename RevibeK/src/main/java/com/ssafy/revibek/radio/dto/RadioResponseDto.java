@@ -15,7 +15,8 @@ public class RadioResponseDto {
 	private String story;
 	private String djMent;
 	private String comfortText;
-	private String novelExcept;
+	// [FIX] DB 컬럼 novel_excerpt 와 camelCase 매핑이 맞도록 필드명 수정.
+	private String novelExcerpt;
 	private LocalDateTime createdAt;
 	private List<RadioSongDto> songs;
 	
