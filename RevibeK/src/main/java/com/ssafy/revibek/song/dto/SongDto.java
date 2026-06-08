@@ -33,4 +33,22 @@ public class SongDto {
     private LocalDateTime scoreUpdatedAt;
     private LocalDate releasedAt;
     private LocalDateTime createdAt;
+<<<<<<< Updated upstream
+=======
+
+    // 분석 필드
+    private Integer durationSeconds;
+    private Double bpm;
+    private Double energy;
+    private Double danceability;
+    private Double loudness;
+    private String musicalKey;
+    private String musicalScale;
+    private Integer beatsCount;
+    private Double beatsConfidence;
+    private Double keyStrength;
+    private Double spectralCentroid;
+    private Double zeroCrossingRate;
+    private int isAnalyzed;
+>>>>>>> Stashed changes
 }
