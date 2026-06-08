@@ -5,42 +5,17 @@
 
 <mapper namespace="com.ssafy.revibek.usersong.mapper.UserSongMapper">
 
-	<resultMap id="UserSongResponseMap" type="com.ssafy.revibek.usersong.dto.UserSongResponseDto">
-		<id property="id" column="id"/>
-		<result property="userId" column="user_id"/>
-		<result property="songId" column="song_id"/>
-		<result property="title" column="title"/>
-		<result property="artist" column="artist"/>
-		<result property="isSaved" column="is_saved"/>
-		<result property="rating" column="rating"/>
-		<result property="playCount" column="play_count"/>
-		<result property="lastPlayedAt" column="last_played_at"/>
-	</resultMap>
-
-    <select id="countUserSong" resultType="int">
-        SELECT COUNT(1)
-        FROM user_songs
-        WHERE user_id = #{userId}
-          AND song_id = #{songId}
-    </select>
-
     <!-- 저장 등록 -->
-    <insert id="insertUserSong">
+    <insert id="insertUserSong"
+        parameterType="com.ssafy.revibek.usersong.dto.UserSongRequestDto">
         INSERT INTO user_songs (user_id, song_id, is_saved)
         VALUES (#{userId}, #{songId}, 1)
     </insert>
 
-    <update id="restoreSavedSong">
-        UPDATE user_songs
-        SET is_saved = 1
-        WHERE user_id = #{userId}
-          AND song_id = #{songId}
-    </update>
-
     <!-- 저장 목록 조회 -->
     <select id="selectSavedSongs" parameterType="string"
-        resultMap="UserSongResponseMap">
-        SELECT us.id, us.user_id, us.song_id, s.title, s.artist,
+        resultType="com.ssafy.revibek.usersong.dto.UserSongResponseDto">
+        SELECT us.id, us.song_id, s.title, s.artist,
                us.is_saved, us.rating, us.play_count, us.last_played_at
         FROM user_songs us
         JOIN songs s ON s.id = us.song_id
@@ -50,12 +25,12 @@
     </select>
 
     <!-- 별점 등록/수정 -->
-    <update id="updateRating">
+    <update id="updateRating"
+        parameterType="com.ssafy.revibek.usersong.dto.UserSongRequestDto">
         UPDATE user_songs
         SET rating = #{rating}
         WHERE user_id = #{userId}
           AND song_id = #{songId}
-          AND is_saved = 1
     </update>
 
     <!-- 재생 카운트 증가 -->
@@ -65,7 +40,6 @@
             last_played_at = NOW()
         WHERE user_id = #{userId}
           AND song_id = #{songId}
-          AND is_saved = 1
     </update>
 
     <!-- 저장 취소 -->
@@ -74,7 +48,6 @@
         SET is_saved = 0
         WHERE user_id = #{userId}
           AND song_id = #{songId}
-          AND is_saved = 1
     </update>
 
 </mapper>

@@ -5,15 +5,11 @@
 
 <mapper namespace="com.ssafy.revibek.user.mapper.UserMapper">
 
-	<insert id="insertLocalUser">
+	<insert id="insertUser"
+		parameterType="com.ssafy.revibek.user.dto.UserRegisterRequestDto">
 		INSERT INTO users (nickname, email, password_hash,
 		provider)
-		VALUES (#{nickname}, #{email}, #{passwordHash}, 'local')
-	</insert>
-
-	<insert id="insertGoogleUser">
-		INSERT INTO users (nickname, email, provider, provider_id)
-		VALUES (#{nickname}, #{email}, 'google', #{providerId})
+		VALUES (#{nickname}, #{email}, #{password}, 'local')
 	</insert>
 
 	<select id="selectUserById" parameterType="string"
@@ -24,14 +20,22 @@
 		#{id}
 	</select>
 
-	<select id="selectUserAuthByEmail" parameterType="string"
-		resultType="com.ssafy.revibek.user.dto.UserAuthDto">
-		SELECT id, nickname, email, provider, provider_id, password_hash
+	<select id="selectPasswordHashByEmail" parameterType="string"
+		resultType="string">
+		SELECT password_hash
 		FROM users
 		WHERE email = #{email}
 	</select>
 
-	<update id="updateUser">
+	<select id="selectUserByEmail" parameterType="string"
+		resultType="com.ssafy.revibek.user.dto.UserResponseDto">
+		SELECT id, nickname, email, provider
+		FROM users
+		WHERE email = #{email}
+	</select>
+
+	<update id="updateUser"
+		parameterType="com.ssafy.revibek.user.dto.UserResponseDto">
 		UPDATE users
 		SET nickname = #{nickname}, email = #{email}
 		WHERE id = #{id}

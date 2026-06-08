@@ -6,22 +6,22 @@
 <mapper namespace="com.ssafy.revibek.radio.mapper.RadioMapper">
 
     <!-- 세션 저장 -->
-    <insert id="insertRadioSession">
-        INSERT INTO radio_sessions (id, user_id, mood, story)
-        VALUES (#{id}, #{userId}, #{mood}, #{story})
+    <insert id="insertSession"
+        parameterType="com.ssafy.revibek.radio.dto.RadioRequestDto">
+        INSERT INTO radio_sessions (user_id, mood, story)
+        VALUES (#{userId}, #{mood}, #{story})
     </insert>
 
     <!-- 세션 조회 -->
-    <select id="selectRadioSessionByIdAndUserId"
+    <select id="selectSessionById" parameterType="string"
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
         SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
         FROM radio_sessions
         WHERE id = #{id}
-          AND user_id = #{userId}
     </select>
 
     <!-- 유저의 세션 목록 -->
-    <select id="selectRadioSessionByUserId" parameterType="string"
+    <select id="selectSessionsByUserId" parameterType="string"
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
         SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
         FROM radio_sessions
@@ -36,7 +36,7 @@
     </insert>
 
     <!-- 세션별 추천곡 조회 -->
-    <select id="selectRecommendationBySessionId" parameterType="string"
+    <select id="selectRecommendationsBySessionId" parameterType="string"
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto$RadioSongDto">
         SELECT rr.song_id, s.title, s.artist, rr.order_num, rr.reason
         FROM radio_recommendations rr
