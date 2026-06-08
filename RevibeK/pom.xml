@@ -90,6 +90,13 @@
 			<version>4.0.1</version>
 			<scope>test</scope>
 		</dependency>
+		<!-- Qdrant Java client -->
+		<dependency>
+		    <groupId>io.qdrant</groupId>
+		    <artifactId>client</artifactId>
+		    <version>1.13.0</version>
+		</dependency>
+
 		<!-- Swagger (springdoc-openapi) -->
 		<dependency>
 		    <groupId>org.springdoc</groupId>
