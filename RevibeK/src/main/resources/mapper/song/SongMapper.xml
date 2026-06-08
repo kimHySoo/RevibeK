@@ -23,9 +23,6 @@
         <result property="scoreUpdatedAt"  column="score_updated_at"/>
         <result property="releasedAt"      column="released_at"/>
         <result property="createdAt"       column="created_at"/>
-<<<<<<< Updated upstream
-=======
-        <!-- 분석 필드 -->
         <result property="durationSeconds"   column="duration_seconds"/>
         <result property="bpm"               column="bpm"/>
         <result property="energy"            column="energy"/>
@@ -39,7 +36,6 @@
         <result property="spectralCentroid"  column="spectral_centroid"/>
         <result property="zeroCrossingRate"  column="zero_crossing_rate"/>
         <result property="isAnalyzed"        column="is_analyzed"/>
->>>>>>> Stashed changes
     </resultMap>
 
     <!-- 노래 등록 -->
