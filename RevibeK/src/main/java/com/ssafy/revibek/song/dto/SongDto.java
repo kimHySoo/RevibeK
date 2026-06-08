@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 @Builder
 @ToString
 public class SongDto {
+
     private String id;
     private String title;
     private String artist;
@@ -33,7 +34,6 @@ public class SongDto {
     private LocalDate releasedAt;
     private LocalDateTime createdAt;
 
-    // 분석 필드 추가
     private Integer durationSeconds;
     private Double bpm;
     private Double energy;
@@ -41,4 +41,10 @@ public class SongDto {
     private Double loudness;
     private String musicalKey;
     private String musicalScale;
+    private Integer beatsCount;
+    private Double beatsConfidence;
+    private Double keyStrength;
+    private Double spectralCentroid;
+    private Double zeroCrossingRate;
+    private int isAnalyzed;
 }
