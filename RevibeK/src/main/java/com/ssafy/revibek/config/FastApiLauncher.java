@@ -4,12 +4,13 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
 
 @Slf4j
-// @Component
+//@Component
 public class FastApiLauncher {
 
     @Value("${fastapi.project.path:../RevibeK_AI}")
