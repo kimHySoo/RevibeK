@@ -32,3 +32,5 @@ application-secret.properties
 # OS
 .DS_Store
 Thumbs.db
+
+.claude
