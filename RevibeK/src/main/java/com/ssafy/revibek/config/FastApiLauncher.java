@@ -10,7 +10,7 @@ import java.io.File;
 import java.io.IOException;
 
 @Slf4j
-//@Component
+@Component
 public class FastApiLauncher {
 
     @Value("${fastapi.project.path:../RevibeK_AI}")

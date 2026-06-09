@@ -30,6 +30,11 @@ public class SongServiceImpl implements SongService {
     }
 
     @Override
+    public SongDto getSongByYoutubeId(String youtubeId) {
+        return songDao.selectSongByYoutubeId(youtubeId);
+    }
+
+    @Override
     public SongDto getSongByTitle(String title) {
         return songDao.selectSongByTitle(title);
     }

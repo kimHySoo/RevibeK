@@ -1,148 +1,108 @@
 import os
+import librosa
 import numpy as np
 
-# Essentia는 Linux/Mac 환경에서 주로 동작한다.
-# Windows 개발 환경에서 import 에러가 나지 않도록 예외 처리.
-try:
-    import essentia
-    import essentia.standard as es
-    ESSENTIA_AVAILABLE = True
-except ImportError:
-    ESSENTIA_AVAILABLE = False
+
+# Krumhansl-Kessler 키 프로파일 (조성 탐지)
+_MAJOR_PROFILE = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
+_MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
+_KEY_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
 
-# ── 내부 유틸 ──────────────────────────────────────────────────────────────────
+def _detect_key(chroma_mean: np.ndarray) -> tuple[str, str, float]:
+    """크로마그램 평균으로 키, 스케일, 강도를 반환한다."""
+    major_corrs = [np.corrcoef(np.roll(chroma_mean, -i), _MAJOR_PROFILE)[0, 1] for i in range(12)]
+    minor_corrs = [np.corrcoef(np.roll(chroma_mean, -i), _MINOR_PROFILE)[0, 1] for i in range(12)]
 
-def _to_python(val):
-    """
-    numpy 스칼라/배열을 JSON 직렬화 가능한 Python 기본 타입으로 재귀 변환한다.
-    Pydantic 응답 직렬화 전에 모든 Essentia 출력에 적용해야 한다.
-    """
-    if isinstance(val, np.integer):
-        return int(val)
-    if isinstance(val, np.floating):
-        return float(val)
-    if isinstance(val, np.ndarray):
-        return val.tolist()
-    if isinstance(val, dict):
-        return {k: _to_python(v) for k, v in val.items()}
-    if isinstance(val, (list, tuple)):
-        return [_to_python(v) for v in val]
-    return val
+    best_major_idx = int(np.argmax(major_corrs))
+    best_minor_idx = int(np.argmax(minor_corrs))
 
+    if major_corrs[best_major_idx] >= minor_corrs[best_minor_idx]:
+        return _KEY_NAMES[best_major_idx], "major", float(major_corrs[best_major_idx])
+    else:
+        return _KEY_NAMES[best_minor_idx], "minor", float(minor_corrs[best_minor_idx])
 
-# ── 공개 API ───────────────────────────────────────────────────────────────────
 
 def analyze_audio(audio_path: str) -> dict:
     """
-    오디오 파일을 Essentia로 분석해 음악 feature를 반환한다.
+    오디오 파일을 librosa로 분석해 음악 feature를 반환한다.
 
     반환 키:
         duration_seconds (int)   : 실제 재생 시간(초)
         bpm              (float) : 템포 (BPM)
-        energy           (float) : 에너지 [0, 1] 정규화
-        danceability     (float) : 댄서빌리티 [0, 1] 정규화 (원본 범위 0–3)
+        energy           (float) : 에너지 [0, 1]
+        danceability     (float) : 댄서빌리티 [0, 1] (tempo + beat strength 추정)
         loudness         (float) : 라우드니스 (dB, 음수)
         musical_key      (str)   : 음악 키 (예: "C")
         musical_scale    (str)   : 음악 스케일 ("major" | "minor")
-        essentia_features (dict) : 전체 분석 결과 (JSON 직렬화 가능)
-
-    :param audio_path: 분석할 오디오 파일 경로
-    :return: 위 키를 포함하는 dict
-    :raises RuntimeError: Essentia 미설치 또는 분석 중 예외 발생 시
+        essentia_features (dict) : 전체 분석 결과
     """
-    if not ESSENTIA_AVAILABLE:
-        raise RuntimeError(
-            "Essentia가 설치되어 있지 않습니다. "
-            "`pip install essentia` 후 재시도하세요."
-        )
-
     if not os.path.exists(audio_path):
         raise RuntimeError(f"오디오 파일이 존재하지 않습니다: {audio_path}")
 
     try:
         # ── 1. 오디오 로드 (44100 Hz 모노) ────────────────────────────────────
-        loader = es.MonoLoader(filename=audio_path, sampleRate=44100)
-        audio = loader()
+        audio, sr = librosa.load(audio_path, sr=44100, mono=True)
+        duration = librosa.get_duration(y=audio, sr=sr)
 
-        sample_rate = 44100
-        duration = float(len(audio)) / sample_rate
+        # ── 2. BPM / 비트 분석 ────────────────────────────────────────────────
+        tempo, beats = librosa.beat.beat_track(y=audio, sr=sr)
+        bpm = float(tempo[0] if hasattr(tempo, '__len__') else tempo)
+        beats_count = int(len(beats))
 
-        # ── 2. BPM / 리듬 분석 ────────────────────────────────────────────────
-        # multifeature 방법이 단일 방법보다 정확도가 높다.
-        rhythm = es.RhythmExtractor2013(method="multifeature")
-        bpm, beats, beats_confidence, _, beats_intervals = rhythm(audio)
+        onset_env = librosa.onset.onset_strength(y=audio, sr=sr)
+        beats_confidence = float(
+            np.mean(onset_env[beats]) / (np.max(onset_env) + 1e-8)
+        ) if beats_count > 0 else 0.0
 
         # ── 3. 키 / 스케일 분석 ───────────────────────────────────────────────
-        key_extractor = es.KeyExtractor()
-        musical_key, musical_scale, key_strength = key_extractor(audio)
+        chroma = librosa.feature.chroma_cqt(y=audio, sr=sr)
+        musical_key, musical_scale, key_strength = _detect_key(np.mean(chroma, axis=1))
 
-        # ── 4. 에너지 분석 ────────────────────────────────────────────────────
-        # Energy()는 sum(x^2)/N 을 반환한다. [-1,1] 범위 신호라면 보통 0~1 사이.
-        energy_raw = float(es.Energy()(audio))
-        # 안전하게 [0, 1] 클리핑
-        energy = min(energy_raw, 1.0)
+        # ── 4. 에너지 (mean squared amplitude) ───────────────────────────────
+        energy = float(min(np.mean(audio ** 2), 1.0))
 
-        # ── 5. 라우드니스 분석 ────────────────────────────────────────────────
-        # Loudness()는 라우드니스를 dB 단위(음수)로 반환한다.
-        loudness = float(es.Loudness()(audio))
+        # ── 5. 라우드니스 (dB) ────────────────────────────────────────────────
+        rms = float(np.sqrt(np.mean(audio ** 2)))
+        loudness = float(librosa.amplitude_to_db(np.array([rms]), ref=1.0)[0])
 
-        # ── 6. 댄서빌리티 분석 ───────────────────────────────────────────────
-        # Danceability()의 출력 범위는 0~3. [0, 1]로 정규화한다.
-        danceability_raw, _ = es.Danceability(sampleRate=sample_rate)(audio)
-        danceability = min(float(danceability_raw) / 3.0, 1.0)
+        # ── 6. 댄서빌리티 (tempo + beat strength 기반 추정) ──────────────────
+        tempo_norm = min(bpm / 200.0, 1.0)
+        danceability = round((tempo_norm + beats_confidence) / 2.0, 4)
 
-        # ── 7. 추가 feature: SpectralCentroid, ZeroCrossingRate ──────────────
-        # 프레임 단위 분석이 필요한 알고리즘들
-        frame_size = 2048
-        hop_size = 512
+        # ── 7. 스펙트럴 센트로이드 ────────────────────────────────────────────
+        spectral_centroid = float(np.mean(librosa.feature.spectral_centroid(y=audio, sr=sr)))
 
-        windowing = es.Windowing(type="hann")
-        spectrum_algo = es.Spectrum()
-        centroid_algo = es.SpectralCentroidTime()
-        zcr_algo = es.ZeroCrossingRate()
+        # ── 8. 영교차율 ───────────────────────────────────────────────────────
+        zero_crossing_rate = float(np.mean(librosa.feature.zero_crossing_rate(audio)))
 
-        centroids = []
-        zcrs = []
-
-        for frame in es.FrameGenerator(audio, frameSize=frame_size, hopSize=hop_size):
-            centroids.append(float(centroid_algo(frame)))
-            zcrs.append(float(zcr_algo(frame)))
-
-        spectral_centroid = float(np.mean(centroids)) if centroids else 0.0
-        zero_crossing_rate = float(np.mean(zcrs)) if zcrs else 0.0
-
-        # ── 8. essentia_features: JSON 직렬화 가능한 전체 결과 dict ──────────
-        essentia_features = _to_python({
-            "duration": duration,
-            "bpm": bpm,
-            "beats_count": len(beats),
-            "beats_confidence": beats_confidence,
+        essentia_features = {
+            "duration": float(duration),
+            "bpm": round(bpm, 4),
+            "beats_count": beats_count,
+            "beats_confidence": round(beats_confidence, 4),
             "key": musical_key,
             "scale": musical_scale,
-            "key_strength": key_strength,
-            "energy_raw": energy_raw,
-            "energy": energy,
-            "loudness_db": loudness,
-            "danceability_raw": danceability_raw,
-            "danceability": danceability,
-            "spectral_centroid": spectral_centroid,
-            "zero_crossing_rate": zero_crossing_rate,
-        })
+            "key_strength": round(key_strength, 4),
+            "energy": round(energy, 4),
+            "loudness_db": round(loudness, 4),
+            "danceability": round(danceability, 4),
+            "spectral_centroid": round(spectral_centroid, 4),
+            "zero_crossing_rate": round(zero_crossing_rate, 6),
+        }
 
         return {
             "duration_seconds": int(duration),
-            "bpm": round(float(bpm), 4),
+            "bpm": round(bpm, 4),
             "energy": round(energy, 4),
             "danceability": round(danceability, 4),
             "loudness": round(loudness, 4),
-            "musical_key": str(musical_key),
-            "musical_scale": str(musical_scale),
+            "musical_key": musical_key,
+            "musical_scale": musical_scale,
             "essentia_features": essentia_features,
         }
 
     except RuntimeError:
-        # 위에서 직접 발생시킨 RuntimeError는 그대로 전파
         raise
     except Exception as e:
-        raise RuntimeError(f"Essentia 분석 중 오류 발생 ({audio_path}): {e}")
+        raise RuntimeError(f"librosa 분석 중 오류 발생 ({audio_path}): {e}")

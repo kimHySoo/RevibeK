@@ -65,6 +65,10 @@
         SELECT * FROM songs WHERE id = #{id}
     </select>
 
+    <select id="selectSongByYoutubeId" parameterType="String" resultMap="SongResultMap">
+        SELECT * FROM songs WHERE youtube_id = #{youtubeId}
+    </select>
+
     <select id="selectSongByTitle" parameterType="String" resultMap="SongResultMap">
         SELECT * FROM songs
         WHERE title LIKE CONCAT('%', #{title}, '%')

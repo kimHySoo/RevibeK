@@ -69,8 +69,8 @@ async def analyze_music(request: AnalyzeRequest):
             duration_seconds=request.duration_seconds,
         )
 
-    # ── 2. 재생 시간 검사 ─────────────────────────────────────────────────────
-    if request.duration_seconds < MIN_DURATION_SECONDS:
+    # ── 2. 재생 시간 검사 (0은 미확인 상태이므로 건너뜀) ──────────────────────
+    if 0 < request.duration_seconds < MIN_DURATION_SECONDS:
         return AnalyzeResponse(
             youtube_video_id=request.youtube_video_id,
             title=request.title,
