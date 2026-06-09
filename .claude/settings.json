@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"c:\\\\pjt\\\\RevibeK\\\\RevibeK\\\\src\\\\main\\\\java\\\\com\\\\ssafy\\\\revibek\" /s /b /a:-d)"
+    ]
+  }
+}
