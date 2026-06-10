@@ -11,6 +11,18 @@
         VALUES (#{id}, #{userId}, #{mood}, #{story})
     </insert>
 
+    <insert id="insertRadioSessionWithMent">
+        INSERT INTO radio_sessions (id, user_id, mood, story, dj_ment)
+        VALUES (#{id}, #{userId}, #{mood}, #{story}, #{djMent})
+    </insert>
+
+    <update id="updateRadioSessionDjMent">
+        UPDATE radio_sessions
+        SET dj_ment = #{djMent}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
     <!-- 세션 조회 -->
     <select id="selectRadioSessionByIdAndUserId"
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">

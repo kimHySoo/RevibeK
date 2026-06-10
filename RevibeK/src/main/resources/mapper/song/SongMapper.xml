@@ -35,6 +35,17 @@
         <result property="isAnalyzed"       column="is_analyzed"/>
     </resultMap>
 
+    <resultMap id="RadioRecommendationSongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
+        <id     property="id"         column="id"/>
+        <result property="title"      column="title"/>
+        <result property="artist"     column="artist"/>
+        <result property="genre"      column="genre"/>
+        <result property="era"        column="era"/>
+        <result property="youtubeUrl" column="youtube_url"/>
+        <result property="youtubeId"  column="youtube_id"/>
+        <result property="score"      column="score"/>
+    </resultMap>
+
     <insert id="insertSong" parameterType="com.ssafy.revibek.song.dto.SongDto">
         INSERT INTO songs (
             id, title, artist, genre, era, type,
@@ -81,6 +92,70 @@
 
     <select id="selectRecommendSongs" resultMap="SongResultMap">
         SELECT * FROM songs ORDER BY score DESC LIMIT 10
+    </select>
+
+    <select id="findRecommendedSongsByEraAndGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            id,
+            title,
+            artist,
+            genre,
+            era,
+            youtube_url,
+            youtube_id,
+            score
+        FROM songs
+        WHERE era = #{era}
+          AND genre = #{genre}
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByEra" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            id,
+            title,
+            artist,
+            genre,
+            era,
+            youtube_url,
+            youtube_id,
+            score
+        FROM songs
+        WHERE era = #{era}
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            id,
+            title,
+            artist,
+            genre,
+            era,
+            youtube_url,
+            youtube_id,
+            score
+        FROM songs
+        WHERE genre = #{genre}
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findTopScoreSongs" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            id,
+            title,
+            artist,
+            genre,
+            era,
+            youtube_url,
+            youtube_id,
+            score
+        FROM songs
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
     </select>
 
     <update id="updateSong" parameterType="com.ssafy.revibek.song.dto.SongDto">

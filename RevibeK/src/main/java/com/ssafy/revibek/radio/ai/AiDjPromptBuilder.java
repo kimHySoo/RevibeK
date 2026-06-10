@@ -1,6 +1,8 @@
 package com.ssafy.revibek.radio.ai;
 
 import com.ssafy.revibek.radio.dto.RadioRequestDto;
+import com.ssafy.revibek.radio.dto.RadioCreateRequestDto;
+import com.ssafy.revibek.radio.dto.RecommendedSongResponseDto;
 import com.ssafy.revibek.song.dto.SongDto;
 import org.springframework.stereotype.Component;
 
@@ -11,6 +13,24 @@ import java.util.stream.IntStream;
 @Component
 public class AiDjPromptBuilder {
 
+    public String build(RadioCreateRequestDto request, List<RecommendedSongResponseDto> songs) {
+        String songList = IntStream.range(0, songs.size())
+                .mapToObj(i -> {
+                    RecommendedSongResponseDto song = songs.get(i);
+                    return (i + 1) + ". " + song.getArtist() + " - " + song.getTitle()
+                        + " (" + safe(song.getEra()) + ", " + safe(song.getGenre()) + ")";
+                })
+                .collect(Collectors.joining("\n"));
+
+        return buildPrompt(
+            safe(request.getMood()),
+            safe(request.getStory()),
+            safe(request.getEra()),
+            safe(request.getGenre()),
+            songList.isBlank() ? "추천곡 없음" : songList
+        );
+    }
+
     public String build(RadioRequestDto request, List<SongDto> songs) {
         String songList = IntStream.range(0, songs.size())
                 .mapToObj(i -> {
@@ -19,9 +39,23 @@ public class AiDjPromptBuilder {
                 })
                 .collect(Collectors.joining("\n"));
 
+        return buildPrompt(
+            safe(request.getMood()),
+            safe(request.getStory()),
+            firstNonBlank(request.getEra(), request.getGeneration()),
+            safe(request.getGenre()),
+            songList.isBlank() ? "추천곡 없음" : songList
+        );
+    }
+
+    private String buildPrompt(String mood, String story, String era, String genre, String songList) {
         return """
-            너는 K-POP 라디오 DJ다.
-            사용자의 감정과 사연, 추천곡 목록을 바탕으로 따뜻하고 자연스러운 라디오 오프닝 멘트를 작성해라.
+            너는 2·3세대 K-POP 전문 라디오 DJ다.
+            사용자의 감정과 사연, 선호 시대/장르, 추천곡 목록을 바탕으로 따뜻하고 자연스러운 라디오 오프닝 멘트를 작성해라.
+
+            시대별 톤:
+            - 2세대 또는 00s: 2000년대 K-POP, 선명한 후렴, 무대 감성, 향수, 에너지 키워드를 자연스럽게 사용
+            - 3세대 또는 10s: 2010년대 K-POP, 감정선, 서사, 청춘, 학창시절 키워드를 자연스럽게 사용
 
             조건:
             - 한국어로 작성
@@ -49,13 +83,7 @@ public class AiDjPromptBuilder {
 
             출력 형식:
             라디오 DJ 멘트만 출력해라.
-            """.formatted(
-                safe(request.getMood()),
-                safe(request.getStory()),
-                firstNonBlank(request.getEra(), request.getGeneration()),
-                safe(request.getGenre()),
-                songList.isBlank() ? "추천곡 없음" : songList
-        );
+            """.formatted(mood, story, era, genre, songList);
     }
 
     private String safe(String value) {
