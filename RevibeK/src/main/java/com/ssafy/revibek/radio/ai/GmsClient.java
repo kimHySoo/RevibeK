@@ -20,7 +20,7 @@ public class GmsClient {
 
     private final RestTemplate restTemplate;
 
-    @Value("${gms.enabled:true}")
+    @Value("${gms.enabled:false}")
     private boolean enabled;
 
     @Value("${gms.api.base-url:}")

@@ -25,18 +25,28 @@ public class EmailVerificationService {
     @Value("${spring.mail.username:}")
     private String senderEmail;
 
+    @Value("${app.email.verification.mode:mock}")
+    private String verificationMode;
+
+    @Value("${app.email.verification.mock-code:123456}")
+    private String mockCode;
+
     private final Map<String, VerificationCodeEntry> codeStore = new ConcurrentHashMap<>();
     private final Map<String, Instant> verifiedEmailStore = new ConcurrentHashMap<>();
 
     public void sendVerificationCode(String email) {
         String normalizedEmail = normalizeEmail(email);
+        cleanupExpiredEntries();
+        String code = isMockMode() ? mockCode : generateCode();
+        Instant expiresAt = Instant.now().plusSeconds(CODE_TTL_SECONDS);
+        codeStore.put(normalizedEmail, new VerificationCodeEntry(code, expiresAt));
+
+        if (isMockMode()) {
+            return;
+        }
         if (senderEmail.isBlank()) {
             throw new RuntimeException("SMTP 발송 계정 설정이 필요합니다.");
         }
-        cleanupExpiredEntries();
-        String code = generateCode();
-        Instant expiresAt = Instant.now().plusSeconds(CODE_TTL_SECONDS);
-        codeStore.put(normalizedEmail, new VerificationCodeEntry(code, expiresAt));
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(senderEmail);
@@ -55,6 +65,10 @@ public class EmailVerificationService {
         cleanupExpiredEntries();
         VerificationCodeEntry entry = codeStore.get(normalizedEmail);
         if (entry == null) {
+            if (isMockMode() && mockCode.equals(code)) {
+                verifiedEmailStore.put(normalizedEmail, Instant.now().plusSeconds(VERIFIED_TTL_SECONDS));
+                return;
+            }
             throw new RuntimeException("인증코드가 없거나 만료되었습니다.");
         }
         if (!entry.code().equals(code)) {
@@ -88,6 +102,10 @@ public class EmailVerificationService {
 
     private String normalizeEmail(String email) {
         return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private boolean isMockMode() {
+        return !"smtp".equalsIgnoreCase(verificationMode);
     }
 
     private record VerificationCodeEntry(String code, Instant expiresAt) {

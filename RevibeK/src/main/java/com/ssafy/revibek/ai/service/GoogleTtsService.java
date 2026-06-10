@@ -23,6 +23,12 @@ public class GoogleTtsService {
 
     private final GoogleTtsDao googleTtsDao;
 
+    @Value("${tts.enabled:false}")
+    private boolean enabled;
+
+    @Value("${gcp.tts.api-key:}")
+    private String apiKey;
+
     @Value("${gcp.tts.default-language-code:ko-KR}")
     private String defaultLanguageCode;
 
@@ -55,6 +61,10 @@ public class GoogleTtsService {
         if (isPitchUnsupportedVoice(voiceName)) {
             // Chirp3-HD voices currently reject pitch parameters.
             pitch = null;
+        }
+
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            return TtsSynthesizeResponseDto.browserTts(request.text(), languageCode, voiceName);
         }
 
         GoogleTtsSynthesizeRequestDto requestDto = new GoogleTtsSynthesizeRequestDto(
@@ -92,6 +102,15 @@ public class GoogleTtsService {
     }
 
     public List<TtsVoiceResponseDto> listVoices(String languageCode) {
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            return List.of(new TtsVoiceResponseDto(
+                StringUtils.hasText(defaultVoiceName) ? defaultVoiceName : "browser-tts",
+                List.of(StringUtils.hasText(languageCode) ? languageCode : defaultLanguageCode),
+                "NEUTRAL",
+                0
+            ));
+        }
+
         GoogleTtsVoicesResponseDto responseDto = googleTtsDao.listVoices(languageCode);
         if (responseDto == null || responseDto.getVoices() == null) {
             return List.of();

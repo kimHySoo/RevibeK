@@ -1,5 +1,6 @@
 package com.ssafy.revibek.ai.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.List;
 
@@ -48,6 +49,12 @@ public class GoogleTtsController {
         @RequestParam(required = false) String preset
     ) {
         TtsSynthesizeResponseDto result = googleTtsService.synthesizeWithPreset(request, preset);
+        if (result.audioContentBase64() == null) {
+            return ResponseEntity.accepted()
+                .header("X-TTS-Mode", result.mode())
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(result.text().getBytes(StandardCharsets.UTF_8));
+        }
         byte[] audioBytes = Base64.getDecoder().decode(result.audioContentBase64());
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"tts.mp3\"")
