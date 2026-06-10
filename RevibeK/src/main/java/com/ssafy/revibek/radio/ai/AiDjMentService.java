@@ -33,15 +33,21 @@ public class AiDjMentService {
             : songs.get(0).getArtist() + "의 " + songs.get(0).getTitle();
 
         String eraPhrase = switch (normalizeEraLabel(era)) {
-            case "2세대" -> "2세대 K-POP 특유의 선명한 후렴과 무대 에너지";
-            case "3세대" -> "3세대 K-POP이 담아낸 청춘의 감정선과 서사";
+            case "2세대" -> "2004년부터 2011년 전후를 채운 2세대 K-POP 특유의 선명한 후렴과 무대 에너지";
+            case "3세대" -> "2012년부터 2017년 전후를 지나온 3세대 K-POP의 청춘 감정선과 서사";
             default -> era + " K-POP 감성";
+        };
+        String artistPhrase = switch (normalizeEraLabel(era)) {
+            case "2세대" -> "동방신기, 빅뱅, 소녀시대, 원더걸스, 카라, 2NE1, 샤이니, 2PM이 떠오르는";
+            case "3세대" -> "EXO, BTS, TWICE, BLACKPINK, Red Velvet, SEVENTEEN, 여자친구가 떠오르는";
+            default -> "그 시절 아티스트들이 떠오르는";
         };
 
         StringBuilder ment = new StringBuilder();
         ment.append("오늘은 ").append(mood).append(" 마음을 위해 ")
             .append(eraPhrase).append("가 느껴지는 ")
-            .append(genre).append(" 곡들을 준비했습니다. ");
+            .append(genre).append(" 곡들을 준비했습니다. ")
+            .append(artistPhrase).append(" 장면들을 라디오처럼 천천히 꺼내볼게요. ");
 
         if (firstSong != null) {
             ment.append("먼저 ").append(firstSong)

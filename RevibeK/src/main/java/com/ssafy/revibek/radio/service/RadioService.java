@@ -199,10 +199,12 @@ public class RadioService {
         String mood = request.getMood();
         String genre = StringUtils.hasText(song.getGenre()) ? song.getGenre() : request.getGenre();
         if ("2세대".equals(eraLabel)) {
-            return "2세대 K-POP 특유의 강한 후렴과 무대 감성이 있어 " + mood + " 마음을 환기해줄 곡입니다.";
+            return "2004년~2011년 전후 2세대 K-POP의 강한 후렴과 무대 감성이 있어 " + mood
+                + " 마음을 환기해줄 곡입니다.";
         }
         if ("3세대".equals(eraLabel)) {
-            return "3세대 K-POP의 감정선과 청춘 서사가 있어 " + mood + " 기분에 어울리는 곡입니다.";
+            return "2012년~2017년 전후 3세대 K-POP의 감정선과 청춘 서사가 있어 " + mood
+                + " 기분에 어울리는 곡입니다.";
         }
         return genre + " 장르의 분위기와 높은 추천 점수를 바탕으로 선곡했습니다.";
     }
