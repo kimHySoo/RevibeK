@@ -191,7 +191,7 @@ INSERT INTO users (id, nickname, email, provider, provider_id, password_hash) VA
   ('u003-0000-0000-0000-000000000003', '레트로킹', 'user3@example.com', 'local',   NULL,    '$2a$10$mockHashValue1'),
   ('u004-0000-0000-0000-000000000004', '별빛수집가', 'user4@example.com','google', 'g_004', NULL),
   ('u005-0000-0000-0000-000000000005', '추억여행자', 'user5@example.com','local',  NULL,    '$2a$10$mockHashValue2');
-
+show tables;
 
 -- ② SONGS (원곡 10곡 + AI 리믹스 10곡)
 INSERT INTO songs (id, title, artist, genre, era, type, youtube_url, youtube_id, view_count, like_count, trend_score, score, score_updated_at, released_at) VALUES
@@ -374,3 +374,14 @@ JOIN radio_recommendations rr ON rr.session_id = rs.id
 JOIN songs s ON s.id = rr.song_id
 GROUP BY rs.mood
 ORDER BY session_count DESC;
+
+
+CREATE USER IF NOT EXISTS 'SSAFY'@'localhost' IDENTIFIED BY 'SSAFY';
+CREATE USER IF NOT EXISTS 'SSAFY'@'127.0.0.1' IDENTIFIED BY 'SSAFY';
+
+GRANT ALL PRIVILEGES ON kpop_radio.* TO 'SSAFY'@'localhost';
+GRANT ALL PRIVILEGES ON kpop_radio.* TO 'SSAFY'@'127.0.0.1';
+FLUSH PRIVILEGES;
+
+USE kpop_radio;
+SHOW TABLES;
