@@ -33,7 +33,9 @@ public class SongDto {
     private LocalDateTime scoreUpdatedAt;
     private LocalDate releasedAt;
     private LocalDateTime createdAt;
-
+    private String generation;
+    private String mood;
+    private String thumbnailUrl;
     private Integer durationSeconds;
     private Double bpm;
     private Double energy;
