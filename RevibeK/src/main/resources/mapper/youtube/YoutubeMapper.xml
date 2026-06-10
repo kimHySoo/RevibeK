@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.revibek.youtube.mapper.YoutubeMapper">
+
+    <insert id="insertChannel" parameterType="com.ssafy.revibek.youtube.dto.YoutubeChannelDto">
+        INSERT IGNORE INTO youtube_channels (channel_id, channel_name, channel_url)
+        VALUES (#{channelId}, #{channelName}, #{channelUrl})
+    </insert>
+
+    <select id="findChannelIdByChannelId" parameterType="String" resultType="Long">
+        SELECT id FROM youtube_channels WHERE channel_id = #{channelId}
+    </select>
+
+	<insert id="insertVideo" parameterType="com.ssafy.revibek.youtube.dto.YoutubeVideoDto">
+	    INSERT IGNORE INTO youtube_videos_raw
+	        (youtube_channel_id, video_id, video_url, video_title, duration_seconds, published_at)
+	    VALUES
+	        (#{youtubeChannelId}, #{videoId}, #{videoUrl}, #{videoTitle}, #{durationSeconds}, #{publishedAt})
+	</insert>
+
+</mapper>

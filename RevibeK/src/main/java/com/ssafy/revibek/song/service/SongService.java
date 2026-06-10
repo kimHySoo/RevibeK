@@ -8,6 +8,7 @@ public interface SongService {
     int registerSong(SongDto song);
     List<SongDto> getAllSongs();
     SongDto getSongById(String id);
+    SongDto getSongByYoutubeId(String youtubeId);
     SongDto getSongByTitle(String title);
     List<SongDto> getSongsByGenre(String genre);
     List<SongDto> getRecommendSongs();

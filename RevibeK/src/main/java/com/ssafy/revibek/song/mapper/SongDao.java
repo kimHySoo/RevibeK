@@ -11,6 +11,7 @@ public interface SongDao {
     int insertSong(SongDto song);
     List<SongDto> selectAllSongs();
     SongDto selectSongById(String id);
+    SongDto selectSongByYoutubeId(String youtubeId);
     SongDto selectSongByTitle(String title);
     List<SongDto> selectSongsByGenre(String genre);
     List<SongDto> selectRecommendSongs();

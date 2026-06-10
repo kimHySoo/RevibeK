@@ -7,14 +7,30 @@
 # Maven 빌드 결과물
 target/
 
-# IDE
+# IntelliJ
 .idea/
 *.iml
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual Environment
+.venv/
+venv/
+
+# Downloads
+RevibeK_AI/downloads/
 
 # 환경변수 / 민감한 정보
 application-secret.properties
 .env
 
+# Jupyter
+.ipynb_checkpoints/
+
 # OS
 .DS_Store
 Thumbs.db
+
+.claude

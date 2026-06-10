@@ -26,7 +26,12 @@ public class SongServiceImpl implements SongService {
 
     @Override
     public SongDto getSongById(String id) {
-        return songDao.selectSongById(id);      // ← 추가
+        return songDao.selectSongById(id);
+    }
+
+    @Override
+    public SongDto getSongByYoutubeId(String youtubeId) {
+        return songDao.selectSongByYoutubeId(youtubeId);
     }
 
     @Override
@@ -41,7 +46,7 @@ public class SongServiceImpl implements SongService {
 
     @Override
     public List<SongDto> getRecommendSongs() {
-        return songDao.selectRecommendSongs();  // Dao에 있는 메서드만 호출
+        return songDao.selectRecommendSongs();
     }
 
     @Override
