@@ -61,6 +61,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.DELETE, "/api/users/me").authenticated()
                 .requestMatchers("/api/usersongs/**").authenticated()
                 .requestMatchers("/api/radio/**").authenticated()
+                .requestMatchers("/api/likes/**").authenticated()
                 .anyRequest().permitAll()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
