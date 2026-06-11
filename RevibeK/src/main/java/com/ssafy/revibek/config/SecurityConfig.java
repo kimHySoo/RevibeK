@@ -62,6 +62,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/usersongs/**").authenticated()
                 .requestMatchers("/api/radio/**").authenticated()
                 .requestMatchers("/api/likes/**").authenticated()
+                .requestMatchers("/api/playlists/**").authenticated()
                 .anyRequest().permitAll()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
