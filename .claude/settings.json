@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dir \"c:\\\\pjt\\\\RevibeK\\\\RevibeK\\\\src\\\\main\\\\java\\\\com\\\\ssafy\\\\revibek\" /s /b /a:-d)"
+      "Bash(dir \"c:\\\\pjt\\\\RevibeK\\\\RevibeK\\\\src\\\\main\\\\java\\\\com\\\\ssafy\\\\revibek\" /s /b /a:-d)",
+      "Bash(grep -A 30 \"CREATE TABLE \\\\`songs\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")",
+      "Bash(grep -A 15 \"CREATE TABLE \\\\`youtube_channels\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")",
+      "Bash(grep -A 15 \"CREATE TABLE \\\\`youtube_videos_raw\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")",
+      "Bash(grep -A 2 \"INSERT INTO \\\\`users\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")"
     ]
   }
 }

@@ -2,12 +2,12 @@
 
 > AI로 되살린 K-POP 감성 + 개인형 위로 라디오 서비스
 
-
 ---
 ## 반드시 먼저 실행할것!!!!
 ```
 git pull origin develop
 ```
+
 ## 🛠 기술 스택
 
 | 구분 | 기술 |
@@ -15,9 +15,8 @@ git pull origin develop
 | Backend | Spring Boot 3.x, MyBatis, Spring Security, JWT |
 | Build | Maven |
 | Database | MySQL 8.0 |
-| Frontend | React (별도 레포) |
+| Frontend | Vue |
 | External API | YouTube Data API v3, Claude API, Clova TTS |
-| Tools | Swagger (springdoc-openapi) |
 
 ---
 
@@ -50,7 +49,7 @@ hotfix/*    → 긴급 버그 수정
 | 브랜치 | 담당 | 내용 |
 |---|---|---|
 | feature/song | 김형수 | 노래 CRUD · 검색 |
-| feature/recommend | 김형수 | 추천 엔진 · 점수 계산 |
+| feature/recommend | 김형수 | 추천 엔진 |
 | feature/playlist | 김형수 | 플레이리스트 |
 | feature/user | 김재원 | 유저 · 인증 · OAuth2 |
 | feature/radio | 김재원 | AI 라디오 · TTS |
@@ -63,7 +62,7 @@ hotfix/*    → 긴급 버그 수정
 ### 1. 레포지토리 clone
 
 ```bash
-git clone https://github.com/팀명/RevibeK.git
+git clone https://github.com/kimHySoo/RevibeK.git
 cd RevibeK
 ```
 
