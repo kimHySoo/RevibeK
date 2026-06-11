@@ -12,6 +12,7 @@ public class AnalyzeResponseDto {
 
     private String title;
     private String status;
+    private String source;
     private String message;
 
     @JsonProperty("audio_path")

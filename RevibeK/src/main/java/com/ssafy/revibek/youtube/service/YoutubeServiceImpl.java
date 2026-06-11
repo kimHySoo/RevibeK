@@ -2,7 +2,9 @@
 package com.ssafy.revibek.youtube.service;
 
 import com.ssafy.revibek.youtube.dto.YoutubeChannelDto;
+import com.ssafy.revibek.youtube.dto.YoutubeFallbackResponseDto;
 import com.ssafy.revibek.youtube.dto.YoutubeVideoDto;
+import com.ssafy.revibek.youtube.dto.YoutubeVideoResponseDto;
 import com.ssafy.revibek.youtube.mapper.YoutubeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,10 +35,10 @@ public class YoutubeServiceImpl implements YoutubeService {
     private static final String YOUTUBE_API = "https://www.googleapis.com/youtube/v3";
 
     @Override
-    public void processChannel(String channelUrl) {
+    public YoutubeFallbackResponseDto processChannelWithResponse(String channelUrl) {
         if (!enabled || !StringUtils.hasText(apiKey)) {
             log.info("[YouTube] API disabled or key missing. Skip external channel collection: {}", channelUrl);
-            return;
+            return fallbackResponse("YouTube API is disabled or API key is missing.");
         }
 
         try {
@@ -49,7 +51,7 @@ public class YoutubeServiceImpl implements YoutubeService {
 
             if (channelInfo == null) {
                 log.warn("[SKIP] 채널 정보 없음: {}", channelUrl);
-                return;
+                return fallbackResponse("YouTube channel metadata was not found. Using fallback video metadata.");
             }
 
             String channelId = (String) channelInfo.get("channelId");
@@ -70,9 +72,15 @@ public class YoutubeServiceImpl implements YoutubeService {
                 youtubeMapper.insertVideo(video);
             }
             log.info("  → {}개 영상 저장 완료", videos.size());
+            return YoutubeFallbackResponseDto.builder()
+                .source("youtube")
+                .message("YouTube channel videos collected successfully.")
+                .videos(toResponseVideos(videos))
+                .build();
 
         } catch (Exception e) {
             log.error("[SKIP] 채널 처리 실패: {} - {}", channelUrl, e.getMessage());
+            return fallbackResponse("YouTube API call failed. Using fallback video metadata.");
         }
     }
 
@@ -239,5 +247,29 @@ public class YoutubeServiceImpl implements YoutubeService {
             return url.replaceAll(".*/channel/([^/]+).*", "$1");
         }
         return null;
+    }
+
+    private YoutubeFallbackResponseDto fallbackResponse(String message) {
+        return YoutubeFallbackResponseDto.builder()
+            .source("fallback")
+            .message(message)
+            .videos(List.of(YoutubeVideoResponseDto.builder()
+                .title("Sample K-POP video")
+                .youtubeId("sample")
+                .youtubeUrl("https://www.youtube.com/watch?v=sample")
+                .thumbnailUrl(null)
+                .build()))
+            .build();
+    }
+
+    private List<YoutubeVideoResponseDto> toResponseVideos(List<YoutubeVideoDto> videos) {
+        return videos.stream()
+            .map(video -> YoutubeVideoResponseDto.builder()
+                .title(video.getTitle())
+                .youtubeId(video.getVideoId())
+                .youtubeUrl(video.getVideoUrl())
+                .thumbnailUrl(null)
+                .build())
+            .toList();
     }
 }

@@ -36,7 +36,7 @@ public class AnalysisServiceImpl implements AnalysisService {
         }
 
         switch (response.getStatus()) {
-            case "COMPLETED" -> {
+            case "COMPLETED", "MOCK" -> {
                 // 분석 결과를 songs 테이블에 반영
                 song.setBpm(response.getBpm());
                 song.setEnergy(response.getEnergy());
@@ -45,7 +45,8 @@ public class AnalysisServiceImpl implements AnalysisService {
                 song.setMusicalKey(response.getMusicalKey());
                 song.setMusicalScale(response.getMusicalScale());
                 songService.modifySong(song);
-                System.out.println("[Analysis] 완료: " + song.getTitle());
+                System.out.println("[Analysis] 완료: " + song.getTitle()
+                    + " (source=" + response.getSource() + ")");
             }
             case "SKIPPED" -> {
                 System.out.println("[Analysis] 스킵: " + song.getTitle()

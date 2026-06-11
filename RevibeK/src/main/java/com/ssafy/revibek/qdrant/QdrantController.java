@@ -2,6 +2,7 @@ package com.ssafy.revibek.qdrant;
 
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.service.SongService;
+import com.ssafy.revibek.qdrant.dto.VectorSearchResponseDto;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -30,14 +31,31 @@ public class QdrantController {
 
     @GetMapping("/similar/{songId}")
     @Operation(summary = "유사곡 조회", description = "특정 곡과 유사한 곡 N개 반환")
-    public ResponseEntity<List<SongDto>> getSimilar(
+    public ResponseEntity<VectorSearchResponseDto> getSimilar(
             @PathVariable String songId,
             @RequestParam(defaultValue = "10") int limit) {
 
         List<String> similarIds = qdrantService.searchSimilar(songId, limit);
         List<SongDto> songs = similarIds.stream()
             .map(songService::getSongById)
+            .filter(song -> song != null)
             .toList();
-        return ResponseEntity.ok(songs);
+
+        if (!songs.isEmpty()) {
+            return ResponseEntity.ok(VectorSearchResponseDto.builder()
+                .source("qdrant")
+                .message("Qdrant vector search result.")
+                .results(songs)
+                .build());
+        }
+
+        List<SongDto> fallback = songService.getRecommendSongs().stream()
+            .limit(limit)
+            .toList();
+        return ResponseEntity.ok(VectorSearchResponseDto.builder()
+            .source("fallback")
+            .message("Qdrant unavailable or no vector results. Using DB score fallback.")
+            .results(fallback)
+            .build());
     }
 }
