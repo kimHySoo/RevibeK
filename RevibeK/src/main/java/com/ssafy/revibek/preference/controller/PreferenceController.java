@@ -1,5 +1,6 @@
 package com.ssafy.revibek.preference.controller;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.StringUtils;
@@ -8,10 +9,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.ssafy.revibek.common.dto.ApiResponseDto;
 import com.ssafy.revibek.preference.dto.UserPreferenceDto;
@@ -29,60 +29,68 @@ public class PreferenceController {
 
     @PostMapping
     public ResponseEntity<ApiResponseDto<UserPreferenceDto>> savePreference(
-        Authentication authentication,
-        @RequestHeader(value = "X-USER-ID", required = false) String headerUserId,
-        @RequestParam(value = "userId", required = false) String requestUserId,
-        @RequestBody UserPreferenceRequestDto request
+            Authentication authentication,
+            @RequestBody UserPreferenceRequestDto request
     ) {
-        String userId = resolveUserId(authentication, headerUserId, requestUserId);
-        UserPreferenceDto data = preferenceService.savePreference(userId, request);
-        return ResponseEntity.ok(ApiResponseDto.success("사용자 취향이 저장되었습니다.", data));
+        String userId = getAuthenticatedUserId(authentication);
+        UserPreferenceDto data =
+                preferenceService.savePreference(userId, request);
+
+        return ResponseEntity.ok(
+                ApiResponseDto.success("사용자 취향이 저장되었습니다.", data)
+        );
     }
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponseDto<UserPreferenceDto>> getMyPreference(
-        Authentication authentication,
-        @RequestHeader(value = "X-USER-ID", required = false) String headerUserId,
-        @RequestParam(value = "userId", required = false) String requestUserId
+            Authentication authentication
     ) {
-        String userId = resolveUserId(authentication, headerUserId, requestUserId);
+        String userId = getAuthenticatedUserId(authentication);
         UserPreferenceDto data = preferenceService.getPreference(userId);
-        return ResponseEntity.ok(ApiResponseDto.success("사용자 취향 조회 완료", data));
+
+        return ResponseEntity.ok(
+                ApiResponseDto.success("사용자 취향 조회 완료", data)
+        );
     }
 
     @PutMapping("/me")
     public ResponseEntity<ApiResponseDto<UserPreferenceDto>> updateMyPreference(
-        Authentication authentication,
-        @RequestHeader(value = "X-USER-ID", required = false) String headerUserId,
-        @RequestParam(value = "userId", required = false) String requestUserId,
-        @RequestBody UserPreferenceRequestDto request
+            Authentication authentication,
+            @RequestBody UserPreferenceRequestDto request
     ) {
-        String userId = resolveUserId(authentication, headerUserId, requestUserId);
-        UserPreferenceDto data = preferenceService.savePreference(userId, request);
-        return ResponseEntity.ok(ApiResponseDto.success("사용자 취향이 수정되었습니다.", data));
+        String userId = getAuthenticatedUserId(authentication);
+        UserPreferenceDto data =
+                preferenceService.savePreference(userId, request);
+
+        return ResponseEntity.ok(
+                ApiResponseDto.success("사용자 취향을 수정했습니다.", data)
+        );
     }
 
     @DeleteMapping("/me")
     public ResponseEntity<ApiResponseDto<Void>> deleteMyPreference(
-        Authentication authentication,
-        @RequestHeader(value = "X-USER-ID", required = false) String headerUserId,
-        @RequestParam(value = "userId", required = false) String requestUserId
+            Authentication authentication
     ) {
-        String userId = resolveUserId(authentication, headerUserId, requestUserId);
+        String userId = getAuthenticatedUserId(authentication);
         preferenceService.deletePreference(userId);
-        return ResponseEntity.ok(ApiResponseDto.success("사용자 취향이 삭제되었습니다.", null));
+
+        return ResponseEntity.ok(
+                ApiResponseDto.success("사용자 취향을 삭제했습니다.", null)
+        );
     }
 
-    private String resolveUserId(Authentication authentication, String headerUserId, String requestUserId) {
-        if (StringUtils.hasText(headerUserId)) {
-            return headerUserId.trim();
+    private String getAuthenticatedUserId(Authentication authentication) {
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || !StringUtils.hasText(authentication.getName())
+                || "anonymousUser".equals(authentication.getName())) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "인증된 사용자 정보가 필요합니다."
+            );
         }
-        if (StringUtils.hasText(requestUserId)) {
-            return requestUserId.trim();
-        }
-        if (authentication != null && StringUtils.hasText(authentication.getName())) {
-            return authentication.getName();
-        }
-        throw new IllegalArgumentException("사용자 ID가 필요합니다. Authorization 또는 X-USER-ID를 전달해주세요.");
+
+        String userId = authentication.getName();
+        return userId.trim();
     }
 }

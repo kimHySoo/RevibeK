@@ -418,6 +418,35 @@ INSERT INTO playlist_songs (id, playlist_id, song_id, order_num) VALUES
   ('ps12-0000-0000-0000-000000000012', 'pl03-0000-0000-0000-000000000003', 's011-0000-0000-0000-000000000011', 5);
 
 
+ALTER TABLE playlists
+  MODIFY COLUMN name VARCHAR(150) NOT NULL,
+  ADD COLUMN description VARCHAR(500) NULL AFTER name,
+  ADD COLUMN updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ON UPDATE CURRENT_TIMESTAMP;
+
+ALTER TABLE radio_sessions
+  ADD COLUMN title VARCHAR(150) NULL AFTER user_id,
+  ADD COLUMN playlist_id CHAR(36) NULL AFTER video_type,
+  ADD INDEX idx_radio_playlist_id (playlist_id),
+  ADD CONSTRAINT fk_radio_session_playlist
+    FOREIGN KEY (playlist_id) REFERENCES playlists(id)
+    ON DELETE SET NULL;
+
+ALTER TABLE radio_recommendations
+  CHANGE COLUMN order_num sort_order TINYINT NOT NULL DEFAULT 1,
+  ADD COLUMN title VARCHAR(200) NULL AFTER song_id,
+  ADD COLUMN artist VARCHAR(100) NULL AFTER title,
+  ADD COLUMN youtube_url VARCHAR(300) NULL AFTER artist,
+  ADD COLUMN thumbnail_url VARCHAR(500) NULL AFTER youtube_url,
+  ADD COLUMN source VARCHAR(20) NOT NULL DEFAULT 'recommended'
+    AFTER thumbnail_url,
+  ADD COLUMN created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
+DROP INDEX idx_session ON radio_recommendations;
+
+CREATE INDEX idx_session
+  ON radio_recommendations(session_id, sort_order);
+
 -- ============================================
 -- 확인용 조회 쿼리
 -- ============================================

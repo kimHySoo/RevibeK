@@ -25,7 +25,11 @@ public class RadioCreateResponseDto {
     private String preferredArtist;
     private String excludedKeywords;
     private String djMent;
+    private String playlistId;
+    private String title;
+    private String  djComment;
     private String recommendationSource;
     private TtsFallbackResponseDto tts;
+    private List<RadioSongResponseDto> songs;
     private List<RecommendedSongResponseDto> recommendedSongs;
 }

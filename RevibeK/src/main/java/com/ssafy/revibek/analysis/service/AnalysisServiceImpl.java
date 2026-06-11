@@ -18,10 +18,10 @@ public class AnalysisServiceImpl implements AnalysisService {
     @Override
     public AnalyzeResponseDto analyze(SongDto song) {
         AnalyzeRequestDto request = new AnalyzeRequestDto(
-            song.getYoutubeId(),
-            song.getYoutubeUrl(),
-            song.getTitle(),
-            song.getDurationSeconds()
+                song.getYoutubeId(),
+                song.getYoutubeUrl(),
+                song.getTitle(),
+                song.getDurationSeconds()
         );
         return fastApiClient.analyze(request);
     }
@@ -36,8 +36,7 @@ public class AnalysisServiceImpl implements AnalysisService {
         }
 
         switch (response.getStatus()) {
-            case "COMPLETED", "MOCK" -> {
-                // 분석 결과를 songs 테이블에 반영
+            case "COMPLETED" -> {
                 song.setBpm(response.getBpm());
                 song.setEnergy(response.getEnergy());
                 song.setDanceability(response.getDanceability());
@@ -46,15 +45,15 @@ public class AnalysisServiceImpl implements AnalysisService {
                 song.setMusicalScale(response.getMusicalScale());
                 songService.modifySong(song);
                 System.out.println("[Analysis] 완료: " + song.getTitle()
-                    + " (source=" + response.getSource() + ")");
+                        + " (source=" + response.getSource() + ")");
             }
-            case "SKIPPED" -> {
-                System.out.println("[Analysis] 스킵: " + song.getTitle()
-                    + " (" + response.getMessage() + ")");
+            case "MOCK", "SKIPPED" -> {
+                System.out.println("[Analysis] 저장 생략: " + song.getTitle()
+                        + " (" + response.getMessage() + ")");
             }
             case "FAILED" -> {
                 System.out.println("[Analysis] 실패: " + song.getTitle()
-                    + " (" + response.getMessage() + ")");
+                        + " (" + response.getMessage() + ")");
             }
             default -> {
                 System.out.println("[Analysis] 알 수 없는 상태: " + response.getStatus());

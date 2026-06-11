@@ -43,34 +43,56 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            .csrf(csrf -> csrf.disable())
-            .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-            // OAuth2 authorization request 저장을 위해 최소한의 세션 생성을 허용한다.
-            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                    "/api/auth/**",
-                    "/oauth2/**",
-                    "/login/oauth2/**",
-                    "/auth/google/callback",
-                    "/swagger-ui/**",
-                    "/v3/api-docs/**"
-                ).permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
-                .requestMatchers(HttpMethod.PUT, "/api/users/me").authenticated()
-                .requestMatchers(HttpMethod.DELETE, "/api/users/me").authenticated()
-                .requestMatchers("/api/usersongs/**").authenticated()
-                .requestMatchers("/api/radio/**").authenticated()
-                .requestMatchers("/api/likes/**").authenticated()
-                .requestMatchers("/api/playlists/**").authenticated()
-                .anyRequest().permitAll()
-            )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .sessionManagement(session -> session.sessionCreationPolicy(
+                        SessionCreationPolicy.IF_REQUIRED
+                ))
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/oauth2/**",
+                                "/login/oauth2/**",
+                                "/auth/google/callback",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
+
+                        .requestMatchers(HttpMethod.GET, "/api/songs/**").permitAll()
+
+                        .requestMatchers("/api/preferences/**").authenticated()
+                        .requestMatchers("/api/radio/**").authenticated()
+                        .requestMatchers("/api/playlists/**").authenticated()
+                        .requestMatchers("/api/likes/**").authenticated()
+                        .requestMatchers("/api/users/me").authenticated()
+                        .requestMatchers("/api/usersongs/**").authenticated()
+
+                        .requestMatchers(HttpMethod.POST, "/api/songs/**")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/songs/**")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/songs/**")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/songs/**")
+                        .authenticated()
+
+                        .requestMatchers("/api/analysis/**").authenticated()
+                        .requestMatchers("/api/qdrant/**").authenticated()
+                        .requestMatchers("/api/youtube/**").authenticated()
+
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
         if (isGoogleOAuthReady()) {
             http.oauth2Login(oauth2 -> oauth2
-                .redirectionEndpoint(redirection -> redirection.baseUri("/auth/google/callback"))
-                .successHandler(oAuth2SuccessHandler)
+                    .redirectionEndpoint(redirection ->
+                            redirection.baseUri("/auth/google/callback")
+                    )
+                    .successHandler(oAuth2SuccessHandler)
             );
         }
 
@@ -80,27 +102,32 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
+
         configuration.setAllowedOrigins(parseAllowedOrigins());
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(
+                List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+        );
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
 
     private boolean isGoogleOAuthReady() {
         return googleOAuthEnabled
-            && StringUtils.hasText(googleClientId)
-            && StringUtils.hasText(googleClientSecret);
+                && StringUtils.hasText(googleClientId)
+                && StringUtils.hasText(googleClientSecret);
     }
 
     private List<String> parseAllowedOrigins() {
         return Arrays.stream(allowedOrigins.split(","))
-            .map(String::trim)
-            .filter(StringUtils::hasText)
-            .toList();
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .toList();
     }
 }
