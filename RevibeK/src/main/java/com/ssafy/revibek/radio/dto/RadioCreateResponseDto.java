@@ -19,6 +19,11 @@ public class RadioCreateResponseDto {
     private String story;
     private String era;
     private String genre;
+    private String situation;
+    private String desiredMood;
+    private String videoType;
+    private String preferredArtist;
+    private String excludedKeywords;
     private String djMent;
     private String recommendationSource;
     private TtsFallbackResponseDto tts;

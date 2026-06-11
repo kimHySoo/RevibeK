@@ -104,73 +104,146 @@
         SELECT * FROM songs ORDER BY score DESC LIMIT 10
     </select>
 
+    <sql id="RadioRecommendationColumns">
+        id,
+        title,
+        artist,
+        genre,
+        era,
+        generation,
+        youtube_url,
+        youtube_id,
+        thumbnail_url,
+        score
+    </sql>
+
+    <sql id="ExcludedKeywordCondition">
+        <if test="excludedKeywords != null and excludedKeywords != ''">
+            AND LOWER(CONCAT(title, ' ', artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
+        </if>
+    </sql>
+
+    <select id="findRecommendedSongsByMoodEraGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          AND (era = #{era} OR generation = #{generation})
+          AND genre = #{genre}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMoodEra" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          AND (era = #{era} OR generation = #{generation})
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMoodGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          AND genre = #{genre}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMood" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
     <select id="findRecommendedSongsByEraAndGenre" resultMap="RadioRecommendationSongResultMap">
         SELECT
-            id,
-            title,
-            artist,
-            genre,
-            era,
-            generation,
-            youtube_url,
-            youtube_id,
-            thumbnail_url,
-            score
+            <include refid="RadioRecommendationColumns"/>
         FROM songs
-        WHERE era = #{era}
+        WHERE (era = #{era} OR generation = #{generation})
           AND genre = #{genre}
+          <include refid="ExcludedKeywordCondition"/>
         ORDER BY score DESC, created_at DESC
         LIMIT #{limit}
     </select>
 
     <select id="findRecommendedSongsByEra" resultMap="RadioRecommendationSongResultMap">
         SELECT
-            id,
-            title,
-            artist,
-            genre,
-            era,
-            generation,
-            youtube_url,
-            youtube_id,
-            thumbnail_url,
-            score
+            <include refid="RadioRecommendationColumns"/>
         FROM songs
-        WHERE era = #{era}
+        WHERE (era = #{era} OR generation = #{generation})
+          <include refid="ExcludedKeywordCondition"/>
         ORDER BY score DESC, created_at DESC
         LIMIT #{limit}
     </select>
 
     <select id="findRecommendedSongsByGenre" resultMap="RadioRecommendationSongResultMap">
         SELECT
-            id,
-            title,
-            artist,
-            genre,
-            era,
-            generation,
-            youtube_url,
-            youtube_id,
-            thumbnail_url,
-            score
+            <include refid="RadioRecommendationColumns"/>
         FROM songs
         WHERE genre = #{genre}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY score DESC, created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByPreference" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        <where>
+            <trim prefix="(" suffix=")" prefixOverrides="OR">
+                <if test="moods != null and moods.size() > 0">
+                    OR mood IN
+                    <foreach collection="moods" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="generations != null and generations.size() > 0">
+                    OR generation IN
+                    <foreach collection="generations" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="eras != null and eras.size() > 0">
+                    OR era IN
+                    <foreach collection="eras" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="genres != null and genres.size() > 0">
+                    OR genre IN
+                    <foreach collection="genres" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="artists != null and artists.size() > 0">
+                    OR artist IN
+                    <foreach collection="artists" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+            </trim>
+            <include refid="ExcludedKeywordCondition"/>
+        </where>
         ORDER BY score DESC, created_at DESC
         LIMIT #{limit}
     </select>
 
     <select id="findTopScoreSongs" resultMap="RadioRecommendationSongResultMap">
         SELECT
-            id,
-            title,
-            artist,
-            genre,
-            era,
-            generation,
-            youtube_url,
-            youtube_id,
-            thumbnail_url,
-            score
+            <include refid="RadioRecommendationColumns"/>
         FROM songs
         ORDER BY score DESC, created_at DESC
         LIMIT #{limit}

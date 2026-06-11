@@ -12,6 +12,8 @@ import com.ssafy.revibek.radio.dto.RadioResponseDto;
 import com.ssafy.revibek.radio.dto.RecommendedSongResponseDto;
 import com.ssafy.revibek.radio.dto.TtsFallbackResponseDto;
 import com.ssafy.revibek.radio.mapper.RadioMapper;
+import com.ssafy.revibek.preference.dto.UserPreferenceDto;
+import com.ssafy.revibek.preference.service.PreferenceService;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.mapper.SongDao;
 import com.ssafy.revibek.tts.TtsResponseDto;
@@ -33,15 +35,21 @@ public class RadioService {
     private final SongDao songDao;
     private final AiDjMentService aiDjMentService;
     private final TtsService ttsService;
+    private final PreferenceService preferenceService;
 
     @Transactional
     public RadioCreateResponseDto createRadio(String userId, RadioCreateRequestDto request) {
         validateUserId(userId);
-        normalizeRequest(request);
+        UserPreferenceDto preference = preferenceService.getPreference(userId);
+        normalizeRequest(request, preference);
 
         RecommendationResult recommendationResult = recommendSongs(
+            effectiveMoodForRecommendation(request),
             normalizeEraForDb(request.getEra()),
+            request.getEra(),
             request.getGenre(),
+            preference,
+            request.getExcludedKeywords(),
             DEFAULT_RECOMMENDATION_LIMIT
         );
         List<RecommendedSongResponseDto> recommendedSongs = toRecommendedSongs(
@@ -56,6 +64,14 @@ public class RadioService {
             userId,
             request.getMood(),
             request.getStory(),
+            request.getEra(),
+            request.getGenre(),
+            request.getSituation(),
+            request.getDesiredMood(),
+            request.getVideoType(),
+            request.getPreferredArtist(),
+            request.getExcludedKeywords(),
+            recommendationResult.source(),
             djMent
         );
 
@@ -74,6 +90,11 @@ public class RadioService {
             .story(request.getStory())
             .era(request.getEra())
             .genre(request.getGenre())
+            .situation(request.getSituation())
+            .desiredMood(request.getDesiredMood())
+            .videoType(request.getVideoType())
+            .preferredArtist(request.getPreferredArtist())
+            .excludedKeywords(request.getExcludedKeywords())
             .djMent(djMent)
             .recommendationSource(recommendationResult.source())
             .tts(TtsFallbackResponseDto.from(tts))
@@ -117,20 +138,53 @@ public class RadioService {
 		return sessions;
 	}
 
-    private RecommendationResult recommendSongs(String era, String genre, int limit) {
-        List<SongDto> songs = safeFindByEraAndGenre(era, genre, limit);
+    private RecommendationResult recommendSongs(
+        String mood,
+        String era,
+        String generation,
+        String genre,
+        UserPreferenceDto preference,
+        String excludedKeywords,
+        int limit
+    ) {
+        List<SongDto> songs = safeFindByMoodEraGenre(mood, era, generation, genre, excludedKeywords, limit);
+        if (!songs.isEmpty()) {
+            return new RecommendationResult("DB_MOOD_ERA_GENRE", songs);
+        }
+
+        songs = safeFindByMoodEra(mood, era, generation, excludedKeywords, limit);
+        if (!songs.isEmpty()) {
+            return new RecommendationResult("DB_MOOD_ERA_FALLBACK", songs);
+        }
+
+        songs = safeFindByMoodGenre(mood, genre, excludedKeywords, limit);
+        if (!songs.isEmpty()) {
+            return new RecommendationResult("DB_MOOD_GENRE_FALLBACK", songs);
+        }
+
+        songs = safeFindByMood(mood, excludedKeywords, limit);
+        if (!songs.isEmpty()) {
+            return new RecommendationResult("DB_MOOD_FALLBACK", songs);
+        }
+
+        songs = safeFindByEraAndGenre(era, generation, genre, excludedKeywords, limit);
         if (!songs.isEmpty()) {
             return new RecommendationResult("DB_ERA_GENRE", songs);
         }
 
-        songs = safeFindByEra(era, limit);
+        songs = safeFindByEra(era, generation, excludedKeywords, limit);
         if (!songs.isEmpty()) {
             return new RecommendationResult("DB_ERA_FALLBACK", songs);
         }
 
-        songs = safeFindByGenre(genre, limit);
+        songs = safeFindByGenre(genre, excludedKeywords, limit);
         if (!songs.isEmpty()) {
             return new RecommendationResult("DB_GENRE_FALLBACK", songs);
+        }
+
+        songs = safeFindByPreference(preference, excludedKeywords, limit);
+        if (!songs.isEmpty()) {
+            return new RecommendationResult("DB_USER_PREFERENCE_FALLBACK", songs);
         }
 
         songs = safeFindTopScore(limit);
@@ -141,25 +195,119 @@ public class RadioService {
         return new RecommendationResult("DB_EMPTY", List.of());
     }
 
-    private List<SongDto> safeFindByEraAndGenre(String era, String genre, int limit) {
+    private List<SongDto> safeFindByMoodEraGenre(
+        String mood,
+        String era,
+        String generation,
+        String genre,
+        String excludedKeywords,
+        int limit
+    ) {
+        if (!StringUtils.hasText(mood) || !StringUtils.hasText(era) || !StringUtils.hasText(generation)
+            || !StringUtils.hasText(genre)) {
+            return List.of();
+        }
         try {
-            return songDao.findRecommendedSongsByEraAndGenre(era, genre, limit);
+            return songDao.findRecommendedSongsByMoodEraGenre(mood, era, generation, genre, excludedKeywords, limit);
         } catch (Exception e) {
             return List.of();
         }
     }
 
-    private List<SongDto> safeFindByEra(String era, int limit) {
+    private List<SongDto> safeFindByMoodEra(
+        String mood,
+        String era,
+        String generation,
+        String excludedKeywords,
+        int limit
+    ) {
+        if (!StringUtils.hasText(mood) || !StringUtils.hasText(era) || !StringUtils.hasText(generation)) {
+            return List.of();
+        }
         try {
-            return songDao.findRecommendedSongsByEra(era, limit);
+            return songDao.findRecommendedSongsByMoodEra(mood, era, generation, excludedKeywords, limit);
         } catch (Exception e) {
             return List.of();
         }
     }
 
-    private List<SongDto> safeFindByGenre(String genre, int limit) {
+    private List<SongDto> safeFindByMoodGenre(String mood, String genre, String excludedKeywords, int limit) {
+        if (!StringUtils.hasText(mood) || !StringUtils.hasText(genre)) {
+            return List.of();
+        }
         try {
-            return songDao.findRecommendedSongsByGenre(genre, limit);
+            return songDao.findRecommendedSongsByMoodGenre(mood, genre, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByMood(String mood, String excludedKeywords, int limit) {
+        if (!StringUtils.hasText(mood)) {
+            return List.of();
+        }
+        try {
+            return songDao.findRecommendedSongsByMood(mood, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByEraAndGenre(
+        String era,
+        String generation,
+        String genre,
+        String excludedKeywords,
+        int limit
+    ) {
+        if (!StringUtils.hasText(era) || !StringUtils.hasText(generation) || !StringUtils.hasText(genre)) {
+            return List.of();
+        }
+        try {
+            return songDao.findRecommendedSongsByEraAndGenre(era, generation, genre, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByEra(String era, String generation, String excludedKeywords, int limit) {
+        if (!StringUtils.hasText(era) || !StringUtils.hasText(generation)) {
+            return List.of();
+        }
+        try {
+            return songDao.findRecommendedSongsByEra(era, generation, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByGenre(String genre, String excludedKeywords, int limit) {
+        if (!StringUtils.hasText(genre)) {
+            return List.of();
+        }
+        try {
+            return songDao.findRecommendedSongsByGenre(genre, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByPreference(UserPreferenceDto preference, String excludedKeywords, int limit) {
+        if (preference == null || !hasAnyPreference(preference)) {
+            return List.of();
+        }
+        try {
+            return songDao.findRecommendedSongsByPreference(
+                preference.getPreferredMoods(),
+                preference.getPreferredGenerations(),
+                preference.getPreferredGenerations().stream()
+                    .map(this::normalizeEraForDb)
+                    .toList(),
+                preference.getPreferredGenres(),
+                preference.getPreferredArtists(),
+                excludedKeywords,
+                limit
+            );
         } catch (Exception e) {
             return List.of();
         }
@@ -198,15 +346,17 @@ public class RadioService {
         String eraLabel = toGenerationLabel(song.getEra());
         String mood = request.getMood();
         String genre = StringUtils.hasText(song.getGenre()) ? song.getGenre() : request.getGenre();
+        String situation = StringUtils.hasText(request.getSituation()) ? " " + request.getSituation() + " 상황에 맞춰" : "";
+        String videoType = StringUtils.hasText(request.getVideoType()) ? " 요청한 " + request.getVideoType() + " 감상 흐름에도 어울립니다." : "";
         if ("2세대".equals(eraLabel)) {
             return "2004년~2011년 전후 2세대 K-POP의 강한 후렴과 무대 감성이 있어 " + mood
-                + " 마음을 환기해줄 곡입니다.";
+                + " 마음을" + situation + " 환기해줄 곡입니다." + videoType;
         }
         if ("3세대".equals(eraLabel)) {
             return "2012년~2017년 전후 3세대 K-POP의 감정선과 청춘 서사가 있어 " + mood
-                + " 기분에 어울리는 곡입니다.";
+                + " 기분에" + situation + " 어울리는 곡입니다." + videoType;
         }
-        return genre + " 장르의 분위기와 높은 추천 점수를 바탕으로 선곡했습니다.";
+        return genre + " 장르의 분위기와 높은 추천 점수를 바탕으로" + situation + " 선곡했습니다." + videoType;
     }
 
     private String resolveYoutubeUrl(SongDto song) {
@@ -225,11 +375,16 @@ public class RadioService {
         }
     }
 
-    private void normalizeRequest(RadioCreateRequestDto request) {
-        request.setMood(trimOrThrow(request.getMood(), "mood"));
-        request.setStory(trimOrThrow(request.getStory(), "story"));
-        request.setEra(toGenerationLabel(trimOrThrow(request.getEra(), "era")));
-        request.setGenre(trimOrThrow(request.getGenre(), "genre"));
+    private void normalizeRequest(RadioCreateRequestDto request, UserPreferenceDto preference) {
+        request.setMood(firstNonBlank(request.getMood(), preferenceService.firstPreferredMood(preference), "감성"));
+        request.setStory(firstNonBlank(request.getStory(), ""));
+        request.setEra(toGenerationLabel(firstNonBlank(request.getEra(), preferenceService.firstPreferredGeneration(preference), "2세대")));
+        request.setGenre(firstNonBlank(request.getGenre(), preferenceService.firstPreferredGenre(preference), ""));
+        request.setSituation(firstNonBlank(request.getSituation(), ""));
+        request.setDesiredMood(firstNonBlank(request.getDesiredMood(), ""));
+        request.setVideoType(firstNonBlank(request.getVideoType(), preferenceService.firstPreferredVideoType(preference), ""));
+        request.setPreferredArtist(firstNonBlank(request.getPreferredArtist(), preferenceService.firstPreferredArtist(preference), ""));
+        request.setExcludedKeywords(mergeKeywords(request.getExcludedKeywords(), preferenceService.joinedExcludedKeywords(preference)));
     }
 
     private String normalizeEraForDb(String era) {
@@ -264,6 +419,24 @@ public class RadioService {
             throw new IllegalArgumentException(fieldName + "는 필수입니다.");
         }
         return value.trim();
+    }
+
+    private String effectiveMoodForRecommendation(RadioCreateRequestDto request) {
+        return firstNonBlank(request.getDesiredMood(), request.getMood(), "");
+    }
+
+    private String mergeKeywords(String requestKeywords, String preferenceKeywords) {
+        if (StringUtils.hasText(requestKeywords) && StringUtils.hasText(preferenceKeywords)) {
+            return requestKeywords.trim() + "," + preferenceKeywords.trim();
+        }
+        return firstNonBlank(requestKeywords, preferenceKeywords, "");
+    }
+
+    private boolean hasAnyPreference(UserPreferenceDto preference) {
+        return !preference.getPreferredMoods().isEmpty()
+            || !preference.getPreferredGenerations().isEmpty()
+            || !preference.getPreferredGenres().isEmpty()
+            || !preference.getPreferredArtists().isEmpty();
     }
 
     private String firstNonBlank(String... values) {

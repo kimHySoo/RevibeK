@@ -12,8 +12,35 @@
     </insert>
 
     <insert id="insertRadioSessionWithMent">
-        INSERT INTO radio_sessions (id, user_id, mood, story, dj_ment)
-        VALUES (#{id}, #{userId}, #{mood}, #{story}, #{djMent})
+        INSERT INTO radio_sessions (
+            id,
+            user_id,
+            mood,
+            story,
+            era,
+            genre,
+            situation,
+            desired_mood,
+            video_type,
+            preferred_artist,
+            excluded_keywords,
+            recommendation_source,
+            dj_ment
+        ) VALUES (
+            #{id},
+            #{userId},
+            #{mood},
+            #{story},
+            #{era},
+            #{genre},
+            #{situation},
+            #{desiredMood},
+            #{videoType},
+            #{preferredArtist},
+            #{excludedKeywords},
+            #{recommendationSource},
+            #{djMent}
+        )
     </insert>
 
     <update id="updateRadioSessionDjMent">
@@ -26,7 +53,22 @@
     <!-- 세션 조회 -->
     <select id="selectRadioSessionByIdAndUserId"
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
-        SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+        SELECT
+            id,
+            mood,
+            story,
+            era,
+            genre,
+            situation,
+            desired_mood,
+            video_type,
+            preferred_artist,
+            excluded_keywords,
+            recommendation_source,
+            dj_ment,
+            comfort_text,
+            novel_excerpt,
+            created_at
         FROM radio_sessions
         WHERE id = #{id}
           AND user_id = #{userId}
@@ -35,7 +77,22 @@
     <!-- 유저의 세션 목록 -->
     <select id="selectRadioSessionByUserId" parameterType="string"
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
-        SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+        SELECT
+            id,
+            mood,
+            story,
+            era,
+            genre,
+            situation,
+            desired_mood,
+            video_type,
+            preferred_artist,
+            excluded_keywords,
+            recommendation_source,
+            dj_ment,
+            comfort_text,
+            novel_excerpt,
+            created_at
         FROM radio_sessions
         WHERE user_id = #{userId}
         ORDER BY created_at DESC

@@ -94,6 +94,25 @@ CREATE TABLE user_songs (
   INDEX idx_user_rating (user_id, rating)
 ) ENGINE=InnoDB COMMENT='유저별 노래 저장/평가/재생 이력';
 
+-- 3-1. USER_PREFERENCES (첫 사용/온보딩 음악 취향)
+CREATE TABLE user_preferences (
+  id                     CHAR(36)    NOT NULL DEFAULT (UUID()),
+  user_id                CHAR(36)    NOT NULL,
+  preferred_generations  JSON        NULL COMMENT '2세대 | 3세대 | 4세대 | 5세대',
+  preferred_moods        JSON        NULL COMMENT '신나는 | 위로 | 감성 | 몽환 | 청량 | 강렬함',
+  preferred_artists      JSON        NULL,
+  preferred_genres       JSON        NULL,
+  preferred_video_types  JSON        NULL COMMENT '원곡 | 라이브 | 커버 | 리믹스 | 무대영상',
+  excluded_genres        JSON        NULL,
+  excluded_keywords      JSON        NULL,
+  created_at             DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at             DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_preferences_user (user_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  INDEX idx_user_preferences_user (user_id)
+) ENGINE=InnoDB COMMENT='사용자 음악 취향';
+
 
 -- 4. RADIO_SESSIONS (라디오 생성 이력)
 CREATE TABLE radio_sessions (
@@ -101,6 +120,14 @@ CREATE TABLE radio_sessions (
   user_id         CHAR(36)    NOT NULL,
   mood            VARCHAR(50) NOT NULL COMMENT '외로운 | 설레는 | 그리운 | 지친 | 행복한 | 슬픈',
   story           TEXT        NULL,
+  era             VARCHAR(20) NULL,
+  genre           VARCHAR(50) NULL,
+  situation       VARCHAR(200) NULL,
+  desired_mood    VARCHAR(50) NULL,
+  video_type      VARCHAR(50) NULL,
+  preferred_artist VARCHAR(100) NULL,
+  excluded_keywords VARCHAR(500) NULL,
+  recommendation_source VARCHAR(50) NULL,
   dj_ment        TEXT        NULL     COMMENT 'Claude API 생성 DJ 멘트',
   comfort_text    TEXT        NULL     COMMENT 'AI 위로 메시지',
   novel_excerpt   TEXT        NULL     COMMENT '활용된 소설 구절',
@@ -108,7 +135,9 @@ CREATE TABLE radio_sessions (
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
   INDEX idx_user_session (user_id, created_at DESC),
-  INDEX idx_mood (mood)
+  INDEX idx_mood (mood),
+  INDEX idx_radio_era_genre (era, genre),
+  INDEX idx_radio_desired_mood (desired_mood)
 ) ENGINE=InnoDB COMMENT='AI 라디오 세션 이력';
 
 

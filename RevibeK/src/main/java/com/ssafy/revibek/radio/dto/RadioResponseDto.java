@@ -13,6 +13,14 @@ public class RadioResponseDto {
 	private String id;
 	private String mood;
 	private String story;
+	private String era;
+	private String genre;
+	private String situation;
+	private String desiredMood;
+	private String videoType;
+	private String preferredArtist;
+	private String excludedKeywords;
+	private String recommendationSource;
 	private String djMent;
 	private String comfortText;
 	// [FIX] DB 컬럼 novel_excerpt 와 camelCase 매핑이 맞도록 필드명 수정.
