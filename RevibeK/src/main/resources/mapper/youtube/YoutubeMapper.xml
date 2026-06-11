@@ -3,20 +3,204 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.ssafy.revibek.youtube.mapper.YoutubeMapper">
 
+    <resultMap id="YoutubeChannelMap" type="com.ssafy.revibek.youtube.dto.YoutubeChannelDto">
+        <id property="id" column="id"/>
+        <result property="channelId" column="channel_id"/>
+        <result property="channelName" column="channel_name"/>
+        <result property="channelUrl" column="url"/>
+        <result property="uploadsPlaylist" column="uploads_playlist"/>
+        <result property="subscriberCount" column="subscriber_count"/>
+        <result property="lastCheckedAt" column="last_checked_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <resultMap id="YoutubeVideoMap" type="com.ssafy.revibek.youtube.dto.YoutubeVideoDto">
+        <id property="id" column="id"/>
+        <result property="channelId" column="channel_id"/>
+        <result property="videoId" column="video_id"/>
+        <result property="videoUrl" column="video_url"/>
+        <result property="title" column="title"/>
+        <result property="durationSeconds" column="duration_seconds"/>
+        <result property="publishedAt" column="published_at"/>
+        <result property="isImported" column="is_imported"/>
+        <result property="isAnalyzed" column="is_analyzed"/>
+        <result property="collectStatus" column="collect_status"/>
+        <result property="fetchedAt" column="fetched_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
     <insert id="insertChannel" parameterType="com.ssafy.revibek.youtube.dto.YoutubeChannelDto">
-        INSERT IGNORE INTO youtube_channels (channel_id, channel_name, channel_url)
-        VALUES (#{channelId}, #{channelName}, #{channelUrl})
+        INSERT INTO youtube_channels (
+            url,
+            channel_id,
+            channel_name,
+            uploads_playlist,
+            subscriber_count,
+            last_checked_at
+        ) VALUES (
+            #{channelUrl},
+            #{channelId},
+            #{channelName},
+            #{uploadsPlaylist},
+            #{subscriberCount},
+            #{lastCheckedAt}
+        )
+        ON DUPLICATE KEY UPDATE
+            url = VALUES(url),
+            channel_name = VALUES(channel_name),
+            uploads_playlist = VALUES(uploads_playlist),
+            subscriber_count = VALUES(subscriber_count),
+            last_checked_at = VALUES(last_checked_at)
     </insert>
 
-    <select id="findChannelIdByChannelId" parameterType="String" resultType="Long">
-        SELECT id FROM youtube_channels WHERE channel_id = #{channelId}
+    <select id="findChannelByChannelId" parameterType="String" resultMap="YoutubeChannelMap">
+        SELECT
+            id,
+            url,
+            channel_id,
+            channel_name,
+            uploads_playlist,
+            subscriber_count,
+            last_checked_at,
+            created_at,
+            updated_at
+        FROM youtube_channels
+        WHERE channel_id = #{channelId}
     </select>
 
-	<insert id="insertVideo" parameterType="com.ssafy.revibek.youtube.dto.YoutubeVideoDto">
-	    INSERT IGNORE INTO youtube_videos_raw
-	        (youtube_channel_id, video_id, video_url, video_title, duration_seconds, published_at)
-	    VALUES
-	        (#{youtubeChannelId}, #{videoId}, #{videoUrl}, #{videoTitle}, #{durationSeconds}, #{publishedAt})
-	</insert>
+    <select id="findChannelIdByChannelId" parameterType="String" resultType="String">
+        SELECT channel_id
+        FROM youtube_channels
+        WHERE channel_id = #{channelId}
+    </select>
+
+    <select id="findAllChannels" resultMap="YoutubeChannelMap">
+        SELECT
+            id,
+            url,
+            channel_id,
+            channel_name,
+            uploads_playlist,
+            subscriber_count,
+            last_checked_at,
+            created_at,
+            updated_at
+        FROM youtube_channels
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="updateChannel" parameterType="com.ssafy.revibek.youtube.dto.YoutubeChannelDto">
+        UPDATE youtube_channels
+        SET
+            url = #{channelUrl},
+            channel_name = #{channelName},
+            uploads_playlist = #{uploadsPlaylist},
+            subscriber_count = #{subscriberCount},
+            last_checked_at = #{lastCheckedAt}
+        WHERE channel_id = #{channelId}
+    </update>
+
+    <delete id="deleteChannel" parameterType="String">
+        DELETE FROM youtube_channels
+        WHERE channel_id = #{channelId}
+    </delete>
+
+    <insert id="insertVideo" parameterType="com.ssafy.revibek.youtube.dto.YoutubeVideoDto">
+        INSERT INTO youtube_videos_raw (
+            channel_id,
+            video_id,
+            video_url,
+            title,
+            duration_seconds,
+            published_at,
+            is_imported,
+            is_analyzed,
+            collect_status
+        ) VALUES (
+            #{channelId},
+            #{videoId},
+            #{videoUrl},
+            #{title},
+            #{durationSeconds},
+            #{publishedAt},
+            COALESCE(#{isImported}, 0),
+            COALESCE(#{isAnalyzed}, 0),
+            COALESCE(#{collectStatus}, 'PENDING')
+        )
+        ON DUPLICATE KEY UPDATE
+            video_url = VALUES(video_url),
+            title = VALUES(title),
+            duration_seconds = VALUES(duration_seconds),
+            published_at = VALUES(published_at),
+            collect_status = VALUES(collect_status)
+    </insert>
+
+    <select id="findVideoByVideoId" parameterType="String" resultMap="YoutubeVideoMap">
+        SELECT
+            id,
+            channel_id,
+            video_id,
+            video_url,
+            title,
+            duration_seconds,
+            published_at,
+            is_imported,
+            is_analyzed,
+            collect_status,
+            fetched_at,
+            updated_at
+        FROM youtube_videos_raw
+        WHERE video_id = #{videoId}
+    </select>
+
+    <select id="findVideosByChannelId" parameterType="String" resultMap="YoutubeVideoMap">
+        SELECT
+            id,
+            channel_id,
+            video_id,
+            video_url,
+            title,
+            duration_seconds,
+            published_at,
+            is_imported,
+            is_analyzed,
+            collect_status,
+            fetched_at,
+            updated_at
+        FROM youtube_videos_raw
+        WHERE channel_id = #{channelId}
+        ORDER BY published_at DESC
+    </select>
+
+    <select id="findPendingVideos" resultMap="YoutubeVideoMap">
+        SELECT
+            id,
+            channel_id,
+            video_id,
+            video_url,
+            title,
+            duration_seconds,
+            published_at,
+            is_imported,
+            is_analyzed,
+            collect_status,
+            fetched_at,
+            updated_at
+        FROM youtube_videos_raw
+        WHERE is_analyzed = 0
+        ORDER BY fetched_at ASC
+    </select>
+
+    <update id="updateVideoStatus">
+        UPDATE youtube_videos_raw
+        SET collect_status = #{status}
+        WHERE video_id = #{videoId}
+    </update>
+
+    <delete id="deleteVideo" parameterType="String">
+        DELETE FROM youtube_videos_raw
+        WHERE video_id = #{videoId}
+    </delete>
 
 </mapper>

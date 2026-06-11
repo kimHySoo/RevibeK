@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -20,7 +21,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class YoutubeServiceImpl implements YoutubeService {
 
-    @Value("${youtube.api.key}")
+    @Value("${youtube.enabled:false}")
+    private boolean enabled;
+
+    @Value("${youtube.api.key:}")
     private String apiKey;
 
     private final YoutubeMapper youtubeMapper;
@@ -30,6 +34,11 @@ public class YoutubeServiceImpl implements YoutubeService {
 
     @Override
     public void processChannel(String channelUrl) {
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            log.info("[YouTube] API disabled or key missing. Skip external channel collection: {}", channelUrl);
+            return;
+        }
+
         try {
             String handle = parseHandle(channelUrl);
             String rawChannelId = parseChannelId(channelUrl);
@@ -51,12 +60,12 @@ public class YoutubeServiceImpl implements YoutubeService {
             channelDto.setChannelId(channelId);
             channelDto.setChannelName(channelName);
             channelDto.setChannelUrl(channelUrl);
+            channelDto.setUploadsPlaylist(uploadsPlaylistId);
             youtubeMapper.insertChannel(channelDto);
 
-            Long dbChannelId = youtubeMapper.findChannelIdByChannelId(channelId);
             log.info("[채널] {} ({})", channelName, channelId);
 
-            List<YoutubeVideoDto> videos = fetchAllVideos(uploadsPlaylistId, dbChannelId);
+            List<YoutubeVideoDto> videos = fetchAllVideos(uploadsPlaylistId, channelId);
             for (YoutubeVideoDto video : videos) {
                 youtubeMapper.insertVideo(video);
             }
@@ -106,7 +115,7 @@ public class YoutubeServiceImpl implements YoutubeService {
     }
 
     @SuppressWarnings("unchecked")
-    private List<YoutubeVideoDto> fetchAllVideos(String playlistId, Long dbChannelId) {
+    private List<YoutubeVideoDto> fetchAllVideos(String playlistId, String channelId) {
         List<YoutubeVideoDto> videos = new ArrayList<>();
         String nextPageToken = null;
 
@@ -141,11 +150,12 @@ public class YoutubeServiceImpl implements YoutubeService {
                     }
 
                     YoutubeVideoDto dto = new YoutubeVideoDto();
-                    dto.setYoutubeChannelId(dbChannelId);
+                    dto.setChannelId(channelId);
                     dto.setVideoId(videoId);
                     dto.setVideoUrl("https://www.youtube.com/watch?v=" + videoId);
-                    dto.setVideoTitle(title);
+                    dto.setTitle(title);
                     dto.setPublishedAt(publishedAt);
+                    dto.setCollectStatus("PENDING");
                     tempVideos.add(dto);
                     videoIds.add(videoId);
                 }

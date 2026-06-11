@@ -38,20 +38,39 @@ CREATE TABLE songs (
   artist            VARCHAR(100)    NOT NULL,
   genre             VARCHAR(50)     NOT NULL COMMENT '발라드 | 댄스 | 힙합 | R&B | 록',
   era               VARCHAR(20)     NOT NULL COMMENT '90s | 00s | 10s | 20s',
+  generation        VARCHAR(20)     NULL     COMMENT '2세대 | 3세대 등 서비스 표시용 세대',
+  mood              VARCHAR(50)     NULL     COMMENT '추천/라디오용 분위기 태그',
   type              VARCHAR(20)     NOT NULL COMMENT 'original | ai_remix',
   youtube_url       VARCHAR(300)    NOT NULL,
   youtube_id        VARCHAR(50)     NOT NULL COMMENT 'YouTube 영상 ID',
+  thumbnail_url     VARCHAR(500)    NULL,
   view_count        INT             NOT NULL DEFAULT 0,
   like_count        INT             NOT NULL DEFAULT 0,
   trend_score       FLOAT           NOT NULL DEFAULT 0.0 COMMENT '최근 7일 증가율 기반',
   score             FLOAT           NOT NULL DEFAULT 0.0 COMMENT '가중 합산 점수 (0~100)',
   score_updated_at  DATETIME        NULL,
   released_at       DATE            NULL,
+  duration_seconds  INT             NULL,
+  bpm               DOUBLE          NULL,
+  energy            DOUBLE          NULL,
+  danceability      DOUBLE          NULL,
+  loudness          DOUBLE          NULL,
+  musical_key       VARCHAR(10)     NULL,
+  musical_scale     VARCHAR(20)     NULL,
+  beats_count       INT             NULL,
+  beats_confidence  DOUBLE          NULL,
+  key_strength      DOUBLE          NULL,
+  spectral_centroid DOUBLE          NULL,
+  zero_crossing_rate DOUBLE         NULL,
+  is_analyzed       TINYINT(1)      NOT NULL DEFAULT 0,
   created_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   INDEX idx_type (type),
   INDEX idx_genre (genre),
   INDEX idx_era (era),
+  INDEX idx_generation (generation),
+  INDEX idx_analyzed (is_analyzed),
   INDEX idx_score (score DESC),
   INDEX idx_youtube_id (youtube_id)
 ) ENGINE=InnoDB COMMENT='원곡 및 AI 리믹스 노래 정보';
@@ -162,6 +181,7 @@ CREATE TABLE youtube_channels (
   subscriber_count  BIGINT,
   last_checked_at   DATETIME,
   created_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id)
 ) ENGINE=InnoDB COMMENT='유튜브 채널 목록';
 
@@ -170,15 +190,36 @@ CREATE TABLE youtube_videos_raw (
   id            CHAR(36)      NOT NULL DEFAULT (UUID()),
   channel_id    VARCHAR(50)   NOT NULL,
   video_id      VARCHAR(20)   NOT NULL UNIQUE,  -- 중복 방지
+  video_url     VARCHAR(300),
   title         VARCHAR(500),
+  duration_seconds INT        NULL,
   published_at  DATETIME,
   is_imported   TINYINT(1)    NOT NULL DEFAULT 0  COMMENT 'songs 테이블 반영 여부',
+  is_analyzed   TINYINT(1)    NOT NULL DEFAULT 0  COMMENT 'FastAPI 분석 여부',
+  collect_status VARCHAR(30)  NOT NULL DEFAULT 'PENDING',
   fetched_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   FOREIGN KEY (channel_id) REFERENCES youtube_channels(channel_id),
   INDEX idx_imported (is_imported),
+  INDEX idx_analyzed (is_analyzed),
+  INDEX idx_collect_status (collect_status),
   INDEX idx_published (published_at DESC)
 ) ENGINE=InnoDB COMMENT='유튜브 영상 수집 대기열';
+
+-- 11. SONG_LIKES (사용자별 곡 좋아요)
+CREATE TABLE song_likes (
+  id          CHAR(36)    NOT NULL DEFAULT (UUID()),
+  user_id     CHAR(36)    NOT NULL,
+  song_id     CHAR(36)    NOT NULL,
+  created_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_user_song_like (user_id, song_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE,
+  INDEX idx_like_user (user_id),
+  INDEX idx_like_song (song_id)
+) ENGINE=InnoDB COMMENT='사용자별 곡 좋아요';
 
 -- ============================================
 -- MOCK DATA — 목업 데이터 INSERT

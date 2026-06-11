@@ -10,9 +10,12 @@
         <result property="artist"          column="artist"/>
         <result property="genre"           column="genre"/>
         <result property="era"             column="era"/>
+        <result property="generation"      column="generation"/>
+        <result property="mood"            column="mood"/>
         <result property="type"            column="type"/>
         <result property="youtubeUrl"      column="youtube_url"/>
         <result property="youtubeId"       column="youtube_id"/>
+        <result property="thumbnailUrl"    column="thumbnail_url"/>
         <result property="viewCount"       column="view_count"/>
         <result property="likeCount"       column="like_count"/>
         <result property="trendScore"      column="trend_score"/>
@@ -33,6 +36,7 @@
         <result property="spectralCentroid" column="spectral_centroid"/>
         <result property="zeroCrossingRate" column="zero_crossing_rate"/>
         <result property="isAnalyzed"       column="is_analyzed"/>
+        <result property="updatedAt"        column="updated_at"/>
     </resultMap>
 
     <resultMap id="RadioRecommendationSongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
@@ -41,30 +45,36 @@
         <result property="artist"     column="artist"/>
         <result property="genre"      column="genre"/>
         <result property="era"        column="era"/>
+        <result property="generation" column="generation"/>
         <result property="youtubeUrl" column="youtube_url"/>
         <result property="youtubeId"  column="youtube_id"/>
+        <result property="thumbnailUrl" column="thumbnail_url"/>
         <result property="score"      column="score"/>
     </resultMap>
 
     <insert id="insertSong" parameterType="com.ssafy.revibek.song.dto.SongDto">
         INSERT INTO songs (
-            id, title, artist, genre, era, type,
-            youtube_url, youtube_id,
+            id, title, artist, genre, era, generation, mood, type,
+            youtube_url, youtube_id, thumbnail_url,
             view_count, like_count,
             trend_score, score,
             released_at, created_at,
             duration_seconds, bpm, energy,
             danceability, loudness,
-            musical_key, musical_scale
+            musical_key, musical_scale,
+            beats_count, beats_confidence, key_strength,
+            spectral_centroid, zero_crossing_rate, is_analyzed
         ) VALUES (
-            UUID(), #{title}, #{artist}, #{genre}, #{era}, #{type},
-            #{youtubeUrl}, #{youtubeId},
+            UUID(), #{title}, #{artist}, #{genre}, #{era}, #{generation}, #{mood}, #{type},
+            #{youtubeUrl}, #{youtubeId}, #{thumbnailUrl},
             #{viewCount}, #{likeCount},
             #{trendScore}, #{score},
             #{releasedAt}, NOW(),
             #{durationSeconds}, #{bpm}, #{energy},
             #{danceability}, #{loudness},
-            #{musicalKey}, #{musicalScale}
+            #{musicalKey}, #{musicalScale},
+            #{beatsCount}, #{beatsConfidence}, #{keyStrength},
+            #{spectralCentroid}, #{zeroCrossingRate}, #{isAnalyzed}
         )
     </insert>
 
@@ -101,8 +111,10 @@
             artist,
             genre,
             era,
+            generation,
             youtube_url,
             youtube_id,
+            thumbnail_url,
             score
         FROM songs
         WHERE era = #{era}
@@ -118,8 +130,10 @@
             artist,
             genre,
             era,
+            generation,
             youtube_url,
             youtube_id,
+            thumbnail_url,
             score
         FROM songs
         WHERE era = #{era}
@@ -134,8 +148,10 @@
             artist,
             genre,
             era,
+            generation,
             youtube_url,
             youtube_id,
+            thumbnail_url,
             score
         FROM songs
         WHERE genre = #{genre}
@@ -150,8 +166,10 @@
             artist,
             genre,
             era,
+            generation,
             youtube_url,
             youtube_id,
+            thumbnail_url,
             score
         FROM songs
         ORDER BY score DESC, created_at DESC
@@ -165,9 +183,12 @@
             artist           = #{artist},
             genre            = #{genre},
             era              = #{era},
+            generation       = #{generation},
+            mood             = #{mood},
             type             = #{type},
             youtube_url      = #{youtubeUrl},
             youtube_id       = #{youtubeId},
+            thumbnail_url    = #{thumbnailUrl},
             view_count       = #{viewCount},
             like_count       = #{likeCount},
             trend_score      = #{trendScore},

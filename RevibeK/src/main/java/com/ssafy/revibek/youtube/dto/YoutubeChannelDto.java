@@ -8,7 +8,13 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class YoutubeChannelDto {
- private String channelId;
- private String channelName;
- private String channelUrl;
+    private String id;
+    private String channelId;
+    private String channelName;
+    private String channelUrl;
+    private String uploadsPlaylist;
+    private Long subscriberCount;
+    private String lastCheckedAt;
+    private String createdAt;
+    private String updatedAt;
 }

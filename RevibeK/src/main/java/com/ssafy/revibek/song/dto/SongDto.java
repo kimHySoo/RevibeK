@@ -33,6 +33,7 @@ public class SongDto {
     private LocalDateTime scoreUpdatedAt;
     private LocalDate releasedAt;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
     private String generation;
     private String mood;
     private String thumbnailUrl;
