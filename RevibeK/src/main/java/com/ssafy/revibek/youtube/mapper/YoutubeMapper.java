@@ -23,5 +23,6 @@ public interface YoutubeMapper {
     List<YoutubeVideoDto> findVideosByChannelId(String channelId);
     List<YoutubeVideoDto> findPendingVideos();  // FastAPI 연동용
     void updateVideoStatus(@Param("videoId") String videoId, @Param("status") String status);
+    void updateVideoAnalyzed(@Param("videoId") String videoId, @Param("isAnalyzed") int isAnalyzed);
     void deleteVideo(String videoId);
 }

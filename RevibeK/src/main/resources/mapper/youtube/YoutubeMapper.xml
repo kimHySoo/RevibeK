@@ -198,6 +198,12 @@
         WHERE video_id = #{videoId}
     </update>
 
+    <update id="updateVideoAnalyzed">
+        UPDATE youtube_videos_raw
+        SET is_analyzed = #{isAnalyzed}
+        WHERE video_id = #{videoId}
+    </update>
+
     <delete id="deleteVideo" parameterType="String">
         DELETE FROM youtube_videos_raw
         WHERE video_id = #{videoId}

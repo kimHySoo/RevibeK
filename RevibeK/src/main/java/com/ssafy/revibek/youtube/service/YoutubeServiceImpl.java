@@ -5,6 +5,7 @@ import com.ssafy.revibek.youtube.dto.YoutubeChannelDto;
 import com.ssafy.revibek.youtube.dto.YoutubeFallbackResponseDto;
 import com.ssafy.revibek.youtube.dto.YoutubeVideoDto;
 import com.ssafy.revibek.youtube.dto.YoutubeVideoResponseDto;
+import com.ssafy.revibek.youtube.dto.YoutubeVideoStatsDto;
 import com.ssafy.revibek.youtube.mapper.YoutubeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -218,6 +219,52 @@ public class YoutubeServiceImpl implements YoutubeService {
         }
 
         return durationMap;
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public YoutubeVideoStatsDto fetchVideoStats(String videoId) {
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            log.info("[YouTube] API disabled or key missing. Skip video stats lookup: {}", videoId);
+            return null;
+        }
+
+        try {
+            String url = YOUTUBE_API + "/videos"
+                + "?part=snippet,statistics"
+                + "&id=" + videoId
+                + "&key=" + apiKey;
+
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response == null) return null;
+
+            List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
+            if (items == null || items.isEmpty()) return null;
+
+            Map<String, Object> item = items.get(0);
+            Map<String, Object> snippet = (Map<String, Object>) item.get("snippet");
+            Map<String, Object> statistics = (Map<String, Object>) item.get("statistics");
+            Map<String, Object> thumbnails = (Map<String, Object>) snippet.get("thumbnails");
+
+            String thumbnailUrl = null;
+            for (String quality : new String[]{"high", "medium", "default"}) {
+                Map<String, Object> thumbnail = (Map<String, Object>) thumbnails.get(quality);
+                if (thumbnail != null) {
+                    thumbnailUrl = (String) thumbnail.get("url");
+                    break;
+                }
+            }
+
+            int viewCount = statistics.get("viewCount") != null
+                ? Integer.parseInt((String) statistics.get("viewCount")) : 0;
+            int likeCount = statistics.get("likeCount") != null
+                ? Integer.parseInt((String) statistics.get("likeCount")) : 0;
+
+            return new YoutubeVideoStatsDto(thumbnailUrl, viewCount, likeCount);
+        } catch (Exception e) {
+            log.error("[SKIP] 영상 통계 조회 실패: {} - {}", videoId, e.getMessage());
+            return null;
+        }
     }
 
     private Integer parseDuration(String duration) {
