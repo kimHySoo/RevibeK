@@ -4,10 +4,14 @@
 <mapper namespace="com.ssafy.revibek.analysis.mapper.RawVideoMapper">
 
     <select id="selectRawVideos" resultType="com.ssafy.revibek.analysis.dto.RawVideoDto">
-        SELECT video_id, video_url, video_title, duration_seconds
+        SELECT
+            video_id,
+            video_url,
+            title AS video_title,
+            duration_seconds
         FROM youtube_videos_raw
         WHERE is_analyzed = 0
-        ORDER BY id ASC
+        ORDER BY fetched_at ASC
         LIMIT #{limit}
     </select>
 

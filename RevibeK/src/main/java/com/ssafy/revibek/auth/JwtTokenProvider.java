@@ -23,14 +23,14 @@ public class JwtTokenProvider {
     public static final String TOKEN_TYPE_ACCESS = "access";
     public static final String TOKEN_TYPE_REFRESH = "refresh";
 
-    @Value("${jwt.secret}")
+    @Value("${jwt.secret:revibek-dev-secret-key-change-me-32bytes}")
     private String secret;
 
     @Getter
-    @Value("${jwt.access-token-expiration-ms}")
+    @Value("${jwt.access-token-expiration-ms:3600000}")
     private long accessTokenExpirationMs;
 
-    @Value("${jwt.refresh-token-expiration-ms}")
+    @Value("${jwt.refresh-token-expiration-ms:1209600000}")
     private long refreshTokenExpirationMs;
 
     private SecretKey secretKey;

@@ -49,6 +49,14 @@ public class ExploreService {
             .filter(s -> s != null)
             .toList();
 
+        if (similar.isEmpty()) {
+            String currentSongId = song.getId();
+            similar = songService.getRecommendSongs().stream()
+                .filter(s -> s != null && !s.getId().equals(currentSongId))
+                .limit(limit)
+                .toList();
+        }
+
         return new ExploreResponseDto(song, similar, isNew);
     }
 
@@ -56,7 +64,7 @@ public class ExploreService {
         AnalyzeRequestDto request = new AnalyzeRequestDto(youtubeId, youtubeUrl, "", 0);
         AnalyzeResponseDto response = fastApiClient.analyze(request);
 
-        if (response == null || !"COMPLETED".equals(response.getStatus())) {
+        if (response == null || !isUsableAnalysis(response.getStatus())) {
             String msg = response != null ? response.getMessage() : "FastAPI 응답 없음";
             throw new RuntimeException("분석 실패: " + msg);
         }
@@ -89,5 +97,9 @@ public class ExploreService {
         Matcher matcher = YOUTUBE_ID_PATTERN.matcher(url);
         if (matcher.find()) return matcher.group(1);
         throw new IllegalArgumentException("유효하지 않은 YouTube URL: " + url);
+    }
+
+    private boolean isUsableAnalysis(String status) {
+        return "COMPLETED".equals(status) || "MOCK".equals(status) || "FALLBACK".equals(status);
     }
 }

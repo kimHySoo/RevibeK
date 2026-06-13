@@ -16,10 +16,18 @@ public class FastApiLauncher {
     @Value("${fastapi.project.path:../RevibeK_AI}")
     private String projectPath;
 
+    @Value("${fastapi.launcher.enabled:false}")
+    private boolean launcherEnabled;
+
     private Process process;
 
     @PostConstruct
     public void start() {
+        if (!launcherEnabled) {
+            log.info("FastAPI 자동 실행 비활성화");
+            return;
+        }
+
         new Thread(() -> {
             try {
                 File workDir = new File(projectPath).getAbsoluteFile();

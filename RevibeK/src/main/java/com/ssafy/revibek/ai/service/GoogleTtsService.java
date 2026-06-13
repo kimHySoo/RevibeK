@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import com.ssafy.revibek.ai.dao.GoogleTtsDao;
+import com.ssafy.revibek.ai.dto.TtsPreset;
 import com.ssafy.revibek.ai.dto.TtsSynthesizeRequestDto;
 import com.ssafy.revibek.ai.dto.TtsSynthesizeResponseDto;
 import com.ssafy.revibek.ai.dto.TtsVoiceResponseDto;
@@ -22,6 +23,12 @@ public class GoogleTtsService {
 
     private final GoogleTtsDao googleTtsDao;
 
+    @Value("${tts.enabled:false}")
+    private boolean enabled;
+
+    @Value("${gcp.tts.api-key:}")
+    private String apiKey;
+
     @Value("${gcp.tts.default-language-code:ko-KR}")
     private String defaultLanguageCode;
 
@@ -34,8 +41,8 @@ public class GoogleTtsService {
     @Value("${gcp.tts.default-speaking-rate:1.0}")
     private Double defaultSpeakingRate;
 
-    @Value("${gcp.tts.default-pitch:0.0}")
-    private Double defaultPitch;
+    @Value("${gcp.tts.default-pitch:}")
+    private String defaultPitch;
 
     public TtsSynthesizeResponseDto synthesize(TtsSynthesizeRequestDto request) {
         String languageCode = StringUtils.hasText(request.languageCode())
@@ -50,9 +57,15 @@ public class GoogleTtsService {
         Double speakingRate = request.speakingRate() != null
             ? request.speakingRate()
             : defaultSpeakingRate;
-        Double pitch = request.pitch() != null
-            ? request.pitch()
-            : defaultPitch;
+        Double pitch = resolvePitch(request.pitch());
+        if (isPitchUnsupportedVoice(voiceName)) {
+            // Chirp3-HD voices currently reject pitch parameters.
+            pitch = null;
+        }
+
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            return TtsSynthesizeResponseDto.browserTts(request.text(), languageCode, voiceName);
+        }
 
         GoogleTtsSynthesizeRequestDto requestDto = new GoogleTtsSynthesizeRequestDto(
             new GoogleTtsSynthesizeRequestDto.Input(request.text()),
@@ -73,7 +86,31 @@ public class GoogleTtsService {
         );
     }
 
+    public TtsSynthesizeResponseDto synthesizeWithPreset(TtsSynthesizeRequestDto request, String presetName) {
+        TtsPreset preset = TtsPreset.from(presetName);
+
+        TtsSynthesizeRequestDto merged = new TtsSynthesizeRequestDto(
+            request.text(),
+            request.languageCode() != null ? request.languageCode() : preset.languageCode,
+            request.voiceName() != null ? request.voiceName() : preset.voiceName,
+            request.speakingRate() != null ? request.speakingRate() : preset.speakingRate,
+            request.pitch() != null ? request.pitch() : preset.pitch,
+            request.audioEncoding() != null ? request.audioEncoding() : preset.audioEncoding
+        );
+
+        return synthesize(merged);
+    }
+
     public List<TtsVoiceResponseDto> listVoices(String languageCode) {
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            return List.of(new TtsVoiceResponseDto(
+                StringUtils.hasText(defaultVoiceName) ? defaultVoiceName : "browser-tts",
+                List.of(StringUtils.hasText(languageCode) ? languageCode : defaultLanguageCode),
+                "NEUTRAL",
+                0
+            ));
+        }
+
         GoogleTtsVoicesResponseDto responseDto = googleTtsDao.listVoices(languageCode);
         if (responseDto == null || responseDto.getVoices() == null) {
             return List.of();
@@ -96,5 +133,24 @@ public class GoogleTtsService {
             return "audio/ogg";
         }
         return "audio/mpeg";
+    }
+
+    private Double resolvePitch(Double requestPitch) {
+        if (requestPitch != null) {
+            return requestPitch;
+        }
+        if (!StringUtils.hasText(defaultPitch)) {
+            return null;
+        }
+        try {
+            return Double.valueOf(defaultPitch);
+        } catch (NumberFormatException e) {
+            throw new RuntimeException("gcp.tts.default-pitch 설정값이 숫자가 아닙니다: " + defaultPitch, e);
+        }
+    }
+
+    private boolean isPitchUnsupportedVoice(String voiceName) {
+        return StringUtils.hasText(voiceName)
+            && voiceName.toLowerCase().contains("chirp3-hd");
     }
 }

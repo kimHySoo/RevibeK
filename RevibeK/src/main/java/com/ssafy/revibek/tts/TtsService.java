@@ -1,0 +1,54 @@
+package com.ssafy.revibek.tts;
+
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import com.ssafy.revibek.ai.dto.TtsSynthesizeRequestDto;
+import com.ssafy.revibek.ai.dto.TtsSynthesizeResponseDto;
+import com.ssafy.revibek.ai.service.GoogleTtsService;
+
+import lombok.RequiredArgsConstructor;
+
+@Service
+@RequiredArgsConstructor
+public class TtsService implements TtsClient {
+
+    private final GoogleTtsService googleTtsService;
+
+    @Override
+    public TtsResponseDto synthesize(String text) {
+        if (!StringUtils.hasText(text)) {
+            return browserFallback("");
+        }
+
+        try {
+            TtsSynthesizeResponseDto response = googleTtsService.synthesize(
+                new TtsSynthesizeRequestDto(text, null, null, null, null, null)
+            );
+
+            if (StringUtils.hasText(response.audioContentBase64())) {
+                return TtsResponseDto.builder()
+                    .mode(response.mode())
+                    .text(text)
+                    .audioUrl("data:%s;base64,%s".formatted(response.contentType(), response.audioContentBase64()))
+                    .build();
+            }
+
+            return TtsResponseDto.builder()
+                .mode(StringUtils.hasText(response.mode()) ? response.mode() : "BROWSER_TTS")
+                .text(StringUtils.hasText(response.text()) ? response.text() : text)
+                .audioUrl(response.audioUrl())
+                .build();
+        } catch (Exception e) {
+            return browserFallback(text);
+        }
+    }
+
+    private TtsResponseDto browserFallback(String text) {
+        return TtsResponseDto.builder()
+            .mode("BROWSER_TTS")
+            .text(text)
+            .audioUrl(null)
+            .build();
+    }
+}

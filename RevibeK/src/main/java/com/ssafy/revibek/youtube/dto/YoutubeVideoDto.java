@@ -9,14 +9,16 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class YoutubeVideoDto {
-    private Long id;
-    private Long youtubeChannelId;
+    private String id;
+    private String channelId;
     private String videoId;
     private String videoUrl;
-    private String videoTitle;
+    private String title;
     private Integer durationSeconds;
     private String publishedAt;
+    private Integer isImported;
+    private Integer isAnalyzed;
     private String collectStatus;
-    private String createdAt;
+    private String fetchedAt;
     private String updatedAt;
 }

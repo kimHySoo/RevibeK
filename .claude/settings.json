@@ -5,7 +5,12 @@
       "Bash(grep -A 30 \"CREATE TABLE \\\\`songs\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")",
       "Bash(grep -A 15 \"CREATE TABLE \\\\`youtube_channels\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")",
       "Bash(grep -A 15 \"CREATE TABLE \\\\`youtube_videos_raw\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")",
-      "Bash(grep -A 2 \"INSERT INTO \\\\`users\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")"
+      "Bash(grep -A 2 \"INSERT INTO \\\\`users\\\\`\" \"/c/pjt/RevibeK/RevibeK/src/main/resources/sql/dump/kpop_radio_dump.sql\")",
+      "Bash(mysqldump -h localhost -P 3306 -u SSAFY -pSSAFY --no-data --skip-comments kpop_radio)",
+      "Bash(grep -E \"^\\(CREATE TABLE|  \\\\`|PRIMARY|UNIQUE|KEY|CONSTRAINT|\\\\\\)\\)\")",
+      "Read(//c/c/pjt/RevibeK/RevibeK/src/main/java/com/ssafy/**)",
+      "Read(//c/c/pjt/RevibeK/RevibeK/src/main/resources/**)",
+      "Bash(./mvnw.cmd -q -o compile)"
     ]
   }
 }

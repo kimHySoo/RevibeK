@@ -2,12 +2,16 @@
 package com.ssafy.revibek.youtube.service;
 
 import com.ssafy.revibek.youtube.dto.YoutubeChannelDto;
+import com.ssafy.revibek.youtube.dto.YoutubeFallbackResponseDto;
 import com.ssafy.revibek.youtube.dto.YoutubeVideoDto;
+import com.ssafy.revibek.youtube.dto.YoutubeVideoResponseDto;
+import com.ssafy.revibek.youtube.dto.YoutubeVideoStatsDto;
 import com.ssafy.revibek.youtube.mapper.YoutubeMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -20,7 +24,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class YoutubeServiceImpl implements YoutubeService {
 
-    @Value("${youtube.api.key}")
+    @Value("${youtube.enabled:false}")
+    private boolean enabled;
+
+    @Value("${youtube.api.key:}")
     private String apiKey;
 
     private final YoutubeMapper youtubeMapper;
@@ -29,7 +36,12 @@ public class YoutubeServiceImpl implements YoutubeService {
     private static final String YOUTUBE_API = "https://www.googleapis.com/youtube/v3";
 
     @Override
-    public void processChannel(String channelUrl) {
+    public YoutubeFallbackResponseDto processChannelWithResponse(String channelUrl) {
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            log.info("[YouTube] API disabled or key missing. Skip external channel collection: {}", channelUrl);
+            return fallbackResponse("YouTube API is disabled or API key is missing.");
+        }
+
         try {
             String handle = parseHandle(channelUrl);
             String rawChannelId = parseChannelId(channelUrl);
@@ -40,7 +52,7 @@ public class YoutubeServiceImpl implements YoutubeService {
 
             if (channelInfo == null) {
                 log.warn("[SKIP] 채널 정보 없음: {}", channelUrl);
-                return;
+                return fallbackResponse("YouTube channel metadata was not found. Using fallback video metadata.");
             }
 
             String channelId = (String) channelInfo.get("channelId");
@@ -51,19 +63,25 @@ public class YoutubeServiceImpl implements YoutubeService {
             channelDto.setChannelId(channelId);
             channelDto.setChannelName(channelName);
             channelDto.setChannelUrl(channelUrl);
+            channelDto.setUploadsPlaylist(uploadsPlaylistId);
             youtubeMapper.insertChannel(channelDto);
 
-            Long dbChannelId = youtubeMapper.findChannelIdByChannelId(channelId);
             log.info("[채널] {} ({})", channelName, channelId);
 
-            List<YoutubeVideoDto> videos = fetchAllVideos(uploadsPlaylistId, dbChannelId);
+            List<YoutubeVideoDto> videos = fetchAllVideos(uploadsPlaylistId, channelId);
             for (YoutubeVideoDto video : videos) {
                 youtubeMapper.insertVideo(video);
             }
             log.info("  → {}개 영상 저장 완료", videos.size());
+            return YoutubeFallbackResponseDto.builder()
+                .source("youtube")
+                .message("YouTube channel videos collected successfully.")
+                .videos(toResponseVideos(videos))
+                .build();
 
         } catch (Exception e) {
             log.error("[SKIP] 채널 처리 실패: {} - {}", channelUrl, e.getMessage());
+            return fallbackResponse("YouTube API call failed. Using fallback video metadata.");
         }
     }
 
@@ -106,7 +124,7 @@ public class YoutubeServiceImpl implements YoutubeService {
     }
 
     @SuppressWarnings("unchecked")
-    private List<YoutubeVideoDto> fetchAllVideos(String playlistId, Long dbChannelId) {
+    private List<YoutubeVideoDto> fetchAllVideos(String playlistId, String channelId) {
         List<YoutubeVideoDto> videos = new ArrayList<>();
         String nextPageToken = null;
 
@@ -141,11 +159,12 @@ public class YoutubeServiceImpl implements YoutubeService {
                     }
 
                     YoutubeVideoDto dto = new YoutubeVideoDto();
-                    dto.setYoutubeChannelId(dbChannelId);
+                    dto.setChannelId(channelId);
                     dto.setVideoId(videoId);
                     dto.setVideoUrl("https://www.youtube.com/watch?v=" + videoId);
-                    dto.setVideoTitle(title);
+                    dto.setTitle(title);
                     dto.setPublishedAt(publishedAt);
+                    dto.setCollectStatus("PENDING");
                     tempVideos.add(dto);
                     videoIds.add(videoId);
                 }
@@ -202,6 +221,52 @@ public class YoutubeServiceImpl implements YoutubeService {
         return durationMap;
     }
 
+    @Override
+    @SuppressWarnings("unchecked")
+    public YoutubeVideoStatsDto fetchVideoStats(String videoId) {
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            log.info("[YouTube] API disabled or key missing. Skip video stats lookup: {}", videoId);
+            return null;
+        }
+
+        try {
+            String url = YOUTUBE_API + "/videos"
+                + "?part=snippet,statistics"
+                + "&id=" + videoId
+                + "&key=" + apiKey;
+
+            Map<String, Object> response = restTemplate.getForObject(url, Map.class);
+            if (response == null) return null;
+
+            List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
+            if (items == null || items.isEmpty()) return null;
+
+            Map<String, Object> item = items.get(0);
+            Map<String, Object> snippet = (Map<String, Object>) item.get("snippet");
+            Map<String, Object> statistics = (Map<String, Object>) item.get("statistics");
+            Map<String, Object> thumbnails = (Map<String, Object>) snippet.get("thumbnails");
+
+            String thumbnailUrl = null;
+            for (String quality : new String[]{"high", "medium", "default"}) {
+                Map<String, Object> thumbnail = (Map<String, Object>) thumbnails.get(quality);
+                if (thumbnail != null) {
+                    thumbnailUrl = (String) thumbnail.get("url");
+                    break;
+                }
+            }
+
+            int viewCount = statistics.get("viewCount") != null
+                ? Integer.parseInt((String) statistics.get("viewCount")) : 0;
+            int likeCount = statistics.get("likeCount") != null
+                ? Integer.parseInt((String) statistics.get("likeCount")) : 0;
+
+            return new YoutubeVideoStatsDto(thumbnailUrl, viewCount, likeCount);
+        } catch (Exception e) {
+            log.error("[SKIP] 영상 통계 조회 실패: {} - {}", videoId, e.getMessage());
+            return null;
+        }
+    }
+
     private Integer parseDuration(String duration) {
         try {
             java.time.Duration d = java.time.Duration.parse(duration);
@@ -229,5 +294,29 @@ public class YoutubeServiceImpl implements YoutubeService {
             return url.replaceAll(".*/channel/([^/]+).*", "$1");
         }
         return null;
+    }
+
+    private YoutubeFallbackResponseDto fallbackResponse(String message) {
+        return YoutubeFallbackResponseDto.builder()
+            .source("fallback")
+            .message(message)
+            .videos(List.of(YoutubeVideoResponseDto.builder()
+                .title("Sample K-POP video")
+                .youtubeId("sample")
+                .youtubeUrl("https://www.youtube.com/watch?v=sample")
+                .thumbnailUrl(null)
+                .build()))
+            .build();
+    }
+
+    private List<YoutubeVideoResponseDto> toResponseVideos(List<YoutubeVideoDto> videos) {
+        return videos.stream()
+            .map(video -> YoutubeVideoResponseDto.builder()
+                .title(video.getTitle())
+                .youtubeId(video.getVideoId())
+                .youtubeUrl(video.getVideoUrl())
+                .thumbnailUrl(null)
+                .build())
+            .toList();
     }
 }

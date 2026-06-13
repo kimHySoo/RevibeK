@@ -14,6 +14,9 @@ logger = logging.getLogger(__name__)
 # 분석을 건너뛸 최소 재생 시간 (초)
 MIN_DURATION_SECONDS = 120
 
+# 분석을 건너뛸 최대 재생 시간 (초)
+MAX_DURATION_SECONDS = 600
+
 # 분석 결과 JSON 저장 폴더 (오디오 다운로드와 동일 폴더 사용)
 RESULTS_DIR = Path("downloads")
 
@@ -76,6 +79,15 @@ async def analyze_music(request: AnalyzeRequest):
             title=request.title,
             status="SKIPPED",
             message=f"재생 시간({request.duration_seconds}초)이 {MIN_DURATION_SECONDS}초 미만이므로 분석을 건너뜁니다.",
+            duration_seconds=request.duration_seconds,
+        )
+
+    if request.duration_seconds > MAX_DURATION_SECONDS:
+        return AnalyzeResponse(
+            youtube_video_id=request.youtube_video_id,
+            title=request.title,
+            status="SKIPPED",
+            message=f"재생 시간({request.duration_seconds}초)이 {MAX_DURATION_SECONDS}초를 초과하므로 분석을 건너뜁니다.",
             duration_seconds=request.duration_seconds,
         )
 

@@ -34,6 +34,7 @@ public class GoogleTtsSynthesizeRequestDto {
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
+    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class AudioConfig {
         private String audioEncoding;
         private Double speakingRate;

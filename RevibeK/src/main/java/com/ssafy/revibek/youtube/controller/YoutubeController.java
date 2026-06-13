@@ -1,6 +1,7 @@
 // com.ssafy.revibek.youtube.controller.YoutubeController.java
 package com.ssafy.revibek.youtube.controller;
 
+import com.ssafy.revibek.youtube.dto.YoutubeFallbackResponseDto;
 import com.ssafy.revibek.youtube.service.YoutubeService;
 
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,16 +23,17 @@ public class YoutubeController {
     private final YoutubeService youtubeService;
 
     @PostMapping("/channel")
-    public ResponseEntity<String> addChannel(@RequestBody Map<String, String> request) {
+    public ResponseEntity<YoutubeFallbackResponseDto> addChannel(@RequestBody Map<String, String> request) {
         String url = request.get("url");
-        youtubeService.processChannel(url);
-        return ResponseEntity.ok("채널 추가 완료");
+        return ResponseEntity.ok(youtubeService.processChannelWithResponse(url));
     }
 
     @PostMapping("/channels")
-    public ResponseEntity<String> addChannels(@RequestBody Map<String, List<String>> request) {
+    public ResponseEntity<List<YoutubeFallbackResponseDto>> addChannels(@RequestBody Map<String, List<String>> request) {
         List<String> urls = request.get("urls");
-        urls.forEach(youtubeService::processChannel);
-        return ResponseEntity.ok("채널 " + urls.size() + "개 추가 완료");
+        List<YoutubeFallbackResponseDto> responses = urls.stream()
+            .map(youtubeService::processChannelWithResponse)
+            .toList();
+        return ResponseEntity.ok(responses);
     }
 }

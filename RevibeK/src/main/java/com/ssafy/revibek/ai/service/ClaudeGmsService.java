@@ -20,10 +20,13 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ClaudeGmsService {
 
-    private final RestClient.Builder restClientBuilder;
+    private final RestClient restClient = RestClient.create();
     private final GmsCreditBudgetTracker budgetTracker;
 
-    @Value("${gms.api.base-url}")
+    @Value("${gms.enabled:false}")
+    private boolean enabled;
+
+    @Value("${gms.api.base-url:}")
     private String baseUrl;
 
     @Value("${gms.api.key:}")
@@ -48,11 +51,11 @@ public class ClaudeGmsService {
     private BigDecimal outputCostPer1k;
 
     public AiChatResponseDto generateText(String prompt, String system, Integer maxTokens) {
-        if (!StringUtils.hasText(apiKey)) {
-            throw new RuntimeException("GMS API 키가 비어 있습니다.");
+        if (!enabled || !StringUtils.hasText(apiKey) || !StringUtils.hasText(baseUrl)) {
+            return fallbackResponse(prompt);
         }
         if (budgetTracker.getSpent().compareTo(budgetCredit) >= 0) {
-            throw new RuntimeException("GMS 예산 " + budgetCredit + " 크레딧을 모두 사용했습니다.");
+            return fallbackResponse(prompt);
         }
 
         ClaudeMessageRequestDto request = new ClaudeMessageRequestDto(
@@ -64,7 +67,7 @@ public class ClaudeGmsService {
 
         ClaudeMessageResponseDto response;
         try {
-            response = restClientBuilder.build()
+            response = restClient
                 .post()
                 .uri(baseUrl)
                 .header("Content-Type", "application/json")
@@ -74,11 +77,11 @@ public class ClaudeGmsService {
                 .retrieve()
                 .body(ClaudeMessageResponseDto.class);
         } catch (RestClientResponseException e) {
-            throw new RuntimeException("GMS Claude 호출 실패: " + e.getResponseBodyAsString(), e);
+            return fallbackResponse(prompt);
         }
 
         if (response == null || response.getContent() == null || response.getContent().isEmpty()) {
-            throw new RuntimeException("Claude 응답이 비어 있습니다.");
+            return fallbackResponse(prompt);
         }
 
         String text = response.getContent().stream()
@@ -86,7 +89,11 @@ public class ClaudeGmsService {
             .map(ClaudeMessageResponseDto.ContentBlock::getText)
             .filter(StringUtils::hasText)
             .findFirst()
-            .orElseThrow(() -> new RuntimeException("Claude 텍스트 응답을 찾을 수 없습니다."));
+            .orElse(null);
+
+        if (!StringUtils.hasText(text)) {
+            return fallbackResponse(prompt);
+        }
 
         long inputTokens = response.getUsage() == null ? 0L : response.getUsage().getInputTokens();
         long outputTokens = response.getUsage() == null ? 0L : response.getUsage().getOutputTokens();
@@ -113,5 +120,23 @@ public class ClaudeGmsService {
             .multiply(outputCostPer1k)
             .divide(BigDecimal.valueOf(1000L), 6, RoundingMode.HALF_UP);
         return inputCost.add(outputCost);
+    }
+
+    private AiChatResponseDto fallbackResponse(String prompt) {
+        String text = "오늘의 RevibeK DJ입니다. 지금은 AI 연동이 비활성화되어 있어 기본 멘트로 진행할게요. "
+            + "입력해주신 분위기에 맞춰 편안하게 들을 수 있는 음악을 준비하겠습니다.";
+        if (StringUtils.hasText(prompt)) {
+            text = text + " 잠시 숨을 고르고, 음악과 함께 천천히 이어가 봐요.";
+        }
+        BigDecimal remainingBudget = budgetCredit.subtract(budgetTracker.getSpent());
+        if (remainingBudget.compareTo(BigDecimal.ZERO) < 0) {
+            remainingBudget = BigDecimal.ZERO;
+        }
+        return new AiChatResponseDto(
+            text,
+            0.0,
+            budgetTracker.getSpent().doubleValue(),
+            remainingBudget.doubleValue()
+        );
     }
 }
