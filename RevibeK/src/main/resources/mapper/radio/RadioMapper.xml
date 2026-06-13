@@ -11,10 +11,40 @@
         VALUES (#{id}, #{userId}, #{mood}, #{story})
     </insert>
 
+<<<<<<< Updated upstream
     <!-- 세션 조회 -->
     <select id="selectRadioSessionByIdAndUserId"
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
         SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+=======
+    <insert id="insertRadioSessionWithMent">
+        INSERT INTO radio_sessions (
+        id, user_id, mood, story, era, genre, situation,
+        desired_mood, video_type, preferred_artist,
+        excluded_keywords, recommendation_source, dj_ment
+        ) VALUES (
+        #{id}, #{userId}, #{mood}, #{story}, #{era}, #{genre}, #{situation},
+        #{desiredMood}, #{videoType}, #{preferredArtist},
+        #{excludedKeywords}, #{recommendationSource}, #{djMent}
+        )
+    </insert>
+
+    <update id="updateRadioSessionDjMent">
+        UPDATE radio_sessions
+        SET dj_ment = #{djMent}
+        WHERE id = #{id}
+        AND user_id = #{userId}
+    </update>
+
+    <!-- 세션 단건 조회 -->
+    <select id="selectRadioSessionByIdAndUserId"
+            resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
+        SELECT
+        id, mood, story, era, genre, situation,
+        desired_mood, video_type, preferred_artist,
+        excluded_keywords, recommendation_source,
+        dj_ment, comfort_text, novel_excerpt, created_at
+>>>>>>> Stashed changes
         FROM radio_sessions
         WHERE id = #{id}
           AND user_id = #{userId}
@@ -22,8 +52,17 @@
 
     <!-- 유저의 세션 목록 -->
     <select id="selectRadioSessionByUserId" parameterType="string"
+<<<<<<< Updated upstream
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
         SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+=======
+            resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
+        SELECT
+        id, mood, story, era, genre, situation,
+        desired_mood, video_type, preferred_artist,
+        excluded_keywords, recommendation_source,
+        dj_ment, comfort_text, novel_excerpt, created_at
+>>>>>>> Stashed changes
         FROM radio_sessions
         WHERE user_id = #{userId}
         ORDER BY created_at DESC
@@ -31,14 +70,32 @@
 
     <!-- 추천곡 저장 -->
     <insert id="insertRecommendation">
+<<<<<<< Updated upstream
         INSERT INTO radio_recommendations (session_id, song_id, order_num, reason)
         VALUES (#{sessionId}, #{songId}, #{orderNum}, #{reason})
+=======
+        INSERT INTO radio_recommendations (
+        session_id, song_id, order_num, reason
+        ) VALUES (
+        #{sessionId}, #{songId}, #{orderNum}, #{reason}
+        )
+>>>>>>> Stashed changes
     </insert>
 
     <!-- 세션별 추천곡 조회 -->
     <select id="selectRecommendationBySessionId" parameterType="string"
+<<<<<<< Updated upstream
         resultType="com.ssafy.revibek.radio.dto.RadioResponseDto$RadioSongDto">
         SELECT rr.song_id, s.title, s.artist, rr.order_num, rr.reason
+=======
+            resultType="com.ssafy.revibek.radio.dto.RadioResponseDto$RadioSongDto">
+        SELECT
+        rr.song_id,
+        s.title,
+        s.artist,
+        rr.order_num AS order_num,
+        rr.reason
+>>>>>>> Stashed changes
         FROM radio_recommendations rr
         JOIN songs s ON s.id = rr.song_id
         WHERE rr.session_id = #{sessionId}
