@@ -26,6 +26,7 @@ public class RadioCreateResponseDto {
     private String excludedKeywords;
     private String djMent;
     private String recommendationSource;
+    private String playlistId;
     private TtsFallbackResponseDto tts;
     private List<RecommendedSongResponseDto> recommendedSongs;
 }

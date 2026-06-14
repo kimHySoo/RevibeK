@@ -1,5 +1,6 @@
 package com.ssafy.revibek.playlist.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -8,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
+import com.ssafy.revibek.playlist.dto.PlaylistItemBatchResponseDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
 import com.ssafy.revibek.playlist.mapper.PlaylistMapper;
 import com.ssafy.revibek.song.mapper.SongDao;
@@ -80,6 +82,30 @@ public class PlaylistService {
             .filter(item -> songId.equals(item.getSongId()))
             .findFirst()
             .orElseThrow(() -> new IllegalStateException("플레이리스트 곡 추가 결과를 찾을 수 없습니다."));
+    }
+
+    @Transactional
+    public PlaylistItemBatchResponseDto addItems(String userId, String playlistId, List<String> songIds) {
+        List<PlaylistItemDto> added = new ArrayList<>();
+        List<PlaylistItemBatchResponseDto.SkippedItem> skipped = new ArrayList<>();
+
+        for (String songId : songIds) {
+            try {
+                PlaylistItemDto item = addItem(userId, playlistId,
+                    PlaylistItemDto.builder().songId(songId).build());
+                added.add(item);
+            } catch (IllegalArgumentException e) {
+                skipped.add(PlaylistItemBatchResponseDto.SkippedItem.builder()
+                    .songId(songId)
+                    .reason(e.getMessage())
+                    .build());
+            }
+        }
+
+        return PlaylistItemBatchResponseDto.builder()
+            .added(added)
+            .skipped(skipped)
+            .build();
     }
 
     @Transactional
