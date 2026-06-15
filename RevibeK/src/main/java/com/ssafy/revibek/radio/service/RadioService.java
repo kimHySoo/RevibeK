@@ -4,6 +4,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.ssafy.revibek.playlist.dto.PlaylistDto;
+import com.ssafy.revibek.playlist.service.PlaylistService;
+import com.ssafy.revibek.qdrant.QdrantService;
 import com.ssafy.revibek.radio.ai.AiDjMentService;
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
@@ -20,12 +23,18 @@ import com.ssafy.revibek.preference.dto.UserPreferenceDto;
 import com.ssafy.revibek.preference.service.PreferenceService;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.mapper.SongDao;
+import com.ssafy.revibek.song.service.SongService;
 import com.ssafy.revibek.tts.TtsResponseDto;
 import com.ssafy.revibek.tts.TtsService;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,13 +43,20 @@ import lombok.RequiredArgsConstructor;
 public class RadioService {
 
     private static final int DEFAULT_RECOMMENDATION_LIMIT = 5;
+    private static final int EXPANDED_RECOMMENDATION_LIMIT = 8;
 
     private final RadioMapper radioMapper;
     private final SongDao songDao;
     private final AiDjMentService aiDjMentService;
     private final TtsService ttsService;
     private final PreferenceService preferenceService;
+<<<<<<< HEAD
     private final PlaylistService playlistService;
+=======
+    private final QdrantService qdrantService;
+    private final PlaylistService playlistService;
+    private final SongService songService;
+>>>>>>> a746f487202f343a3ac94c00e48fccafb6211598
 
     @Transactional
     public RadioCreateResponseDto createRadio(String userId, RadioCreateRequestDto request) {
@@ -57,9 +73,15 @@ public class RadioService {
                 request.getExcludedKeywords(),
                 DEFAULT_RECOMMENDATION_LIMIT
         );
+        List<SongDto> expandedSongs = expandWithQdrant(recommendationResult.songs(), EXPANDED_RECOMMENDATION_LIMIT);
         List<RecommendedSongResponseDto> recommendedSongs = toRecommendedSongs(
+<<<<<<< HEAD
                 recommendationResult.songs(),
                 request
+=======
+            expandedSongs,
+            request
+>>>>>>> a746f487202f343a3ac94c00e48fccafb6211598
         );
 
         String djMent = aiDjMentService.createDjMent(request, recommendedSongs);
@@ -88,6 +110,7 @@ public class RadioService {
         }
 
         String playlistId = createRadioPlaylist(userId, request, recommendedSongs);
+<<<<<<< HEAD
         if (playlistId != null) {
             radioMapper.updateRadioSessionPlaylistId(sessionId, userId, playlistId);
         }
@@ -111,6 +134,28 @@ public class RadioService {
                 .tts(TtsFallbackResponseDto.from(tts))
                 .recommendedSongs(recommendedSongs)
                 .build();
+=======
+
+        TtsResponseDto tts = ttsService.synthesize(djMent);
+        return RadioCreateResponseDto.builder()
+            .radioSessionId(sessionId)
+            .userId(userId)
+            .mood(request.getMood())
+            .story(request.getStory())
+            .era(request.getEra())
+            .genre(request.getGenre())
+            .situation(request.getSituation())
+            .desiredMood(request.getDesiredMood())
+            .videoType(request.getVideoType())
+            .preferredArtist(request.getPreferredArtist())
+            .excludedKeywords(request.getExcludedKeywords())
+            .djMent(djMent)
+            .recommendationSource(recommendationResult.source())
+            .playlistId(playlistId)
+            .tts(TtsFallbackResponseDto.from(tts))
+            .recommendedSongs(recommendedSongs)
+            .build();
+>>>>>>> a746f487202f343a3ac94c00e48fccafb6211598
     }
 
     //라디오 세션 생성
@@ -177,6 +222,62 @@ public class RadioService {
             }
         }
         return playlist.getId();
+    }
+
+    private List<SongDto> expandWithQdrant(List<SongDto> seedSongs, int totalLimit) {
+        if (seedSongs.isEmpty()) {
+            return seedSongs;
+        }
+
+        List<SongDto> result = new ArrayList<>(seedSongs);
+        Set<String> seenIds = result.stream()
+            .map(SongDto::getId)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        String seedId = seedSongs.get(0).getId();
+        List<String> similarIds = qdrantService.searchSimilar(seedId, totalLimit);
+
+        for (String id : similarIds) {
+            if (result.size() >= totalLimit) {
+                break;
+            }
+            if (seenIds.contains(id)) {
+                continue;
+            }
+            SongDto song = songService.getSongById(id);
+            if (song != null) {
+                result.add(song);
+                seenIds.add(id);
+            }
+        }
+        return result;
+    }
+
+    private String createRadioPlaylist(String userId, RadioCreateRequestDto request, List<RecommendedSongResponseDto> recommendedSongs) {
+        List<String> songIds = recommendedSongs.stream()
+            .map(RecommendedSongResponseDto::getSongId)
+            .filter(StringUtils::hasText)
+            .toList();
+
+        if (songIds.isEmpty()) {
+            return null;
+        }
+
+        PlaylistDto playlist = playlistService.createPlaylist(userId, PlaylistDto.builder()
+            .name(buildPlaylistName(request))
+            .moodTag(request.getMood())
+            .isPublic(false)
+            .build());
+
+        playlistService.addItems(userId, playlist.getId(), songIds);
+        return playlist.getId();
+    }
+
+    private String buildPlaylistName(RadioCreateRequestDto request) {
+        String mood = StringUtils.hasText(request.getMood()) ? request.getMood() : "감성";
+        String era = StringUtils.hasText(request.getEra()) ? request.getEra() : "";
+        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+        return String.format("%s %s 라디오 - %s", mood, era, date).replaceAll("\\s+", " ").trim();
     }
 
     private RecommendationResult recommendSongs(

@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
+import com.ssafy.revibek.playlist.dto.PlaylistItemBatchRequestDto;
+import com.ssafy.revibek.playlist.dto.PlaylistItemBatchResponseDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
 import com.ssafy.revibek.playlist.service.PlaylistService;
 
@@ -49,6 +51,15 @@ public class PlaylistController {
                                                    @PathVariable String playlistId,
                                                    @Valid @RequestBody PlaylistItemDto request) {
         return ResponseEntity.ok(playlistService.addItem(authentication.getName(), playlistId, request));
+    }
+
+    @PostMapping("/{playlistId}/items/batch")
+    public ResponseEntity<PlaylistItemBatchResponseDto> addItems(Authentication authentication,
+                                                                  @PathVariable String playlistId,
+                                                                  @Valid @RequestBody PlaylistItemBatchRequestDto request) {
+        return ResponseEntity.ok(
+            playlistService.addItems(authentication.getName(), playlistId, request.getSongIds())
+        );
     }
 
     @DeleteMapping("/{playlistId}/items/{itemId}")

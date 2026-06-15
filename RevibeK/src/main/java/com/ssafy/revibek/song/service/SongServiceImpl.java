@@ -35,7 +35,7 @@ public class SongServiceImpl implements SongService {
     }
 
     @Override
-    public SongDto getSongByTitle(String title) {
+    public List<SongDto> getSongByTitle(String title) {
         return songDao.selectSongByTitle(title);
     }
 

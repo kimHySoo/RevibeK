@@ -9,7 +9,7 @@ public interface SongService {
     List<SongDto> getAllSongs();
     SongDto getSongById(String id);
     SongDto getSongByYoutubeId(String youtubeId);
-    SongDto getSongByTitle(String title);
+    List<SongDto> getSongByTitle(String title);
     List<SongDto> getSongsByGenre(String genre);
     List<SongDto> getRecommendSongs();
     int modifySong(SongDto song);
