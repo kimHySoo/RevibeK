@@ -85,10 +85,8 @@ public class SongController {
     public ResponseEntity<?> getSongByTitle(
             @RequestParam @Parameter(description = "검색할 노래 제목") String title) {
         try {
-            SongDto song = songService.getSongByTitle(title);
-            if (song != null)
-                return ResponseEntity.ok(song);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("노래를 찾을 수 없습니다.");
+            List<SongDto> songs = songService.getSongByTitle(title);
+            return ResponseEntity.ok(songs);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }

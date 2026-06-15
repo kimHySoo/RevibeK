@@ -7,6 +7,7 @@ app = FastAPI(title="RevibeK AI Server")
 # 라우터 등록
 app.include_router(analyze.router)
 
+#.\.venv\Scripts\Activate.ps1
 # uvicorn app.main:app --reload
 @app.get("/")
 async def welcome() -> dict:
