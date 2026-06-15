@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import com.ssafy.revibek.common.dto.ErrorResponse;
+import com.ssafy.revibek.radio.exception.RadioNotFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -18,62 +19,76 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
-        MethodArgumentNotValidException exception,
-        HttpServletRequest request
+            MethodArgumentNotValidException exception,
+            HttpServletRequest request
     ) {
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         exception.getBindingResult().getFieldErrors().forEach(error ->
-            fieldErrors.put(error.getField(), error.getDefaultMessage())
+                fieldErrors.put(error.getField(), error.getDefaultMessage())
         );
 
         ErrorResponse response = ErrorResponse.of(
-            HttpStatus.BAD_REQUEST.value(),
-            HttpStatus.BAD_REQUEST.getReasonPhrase(),
-            "요청값 검증에 실패했습니다.",
-            request.getRequestURI(),
-            fieldErrors
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                "요청값 검증에 실패했습니다.",
+                request.getRequestURI(),
+                fieldErrors
         );
         return ResponseEntity.badRequest().body(response);
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleBadRequest(
-        IllegalArgumentException exception,
-        HttpServletRequest request
+            IllegalArgumentException exception,
+            HttpServletRequest request
     ) {
         ErrorResponse response = ErrorResponse.of(
-            HttpStatus.BAD_REQUEST.value(),
-            HttpStatus.BAD_REQUEST.getReasonPhrase(),
-            exception.getMessage(),
-            request.getRequestURI()
+                HttpStatus.BAD_REQUEST.value(),
+                HttpStatus.BAD_REQUEST.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI()
         );
         return ResponseEntity.badRequest().body(response);
     }
 
-    @ExceptionHandler(RuntimeException.class)
-    public ResponseEntity<ErrorResponse> handleRuntime(
-        RuntimeException exception,
-        HttpServletRequest request
+    @ExceptionHandler(RadioNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleRadioNotFound(
+            RadioNotFoundException exception,
+            HttpServletRequest request
     ) {
         ErrorResponse response = ErrorResponse.of(
-            HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-            exception.getMessage(),
-            request.getRequestURI()
+                HttpStatus.NOT_FOUND.value(),
+                HttpStatus.NOT_FOUND.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    @ExceptionHandler(RuntimeException.class)
+    public ResponseEntity<ErrorResponse> handleRuntime(
+            RuntimeException exception,
+            HttpServletRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                exception.getMessage(),
+                request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(
-        Exception exception,
-        HttpServletRequest request
+            Exception exception,
+            HttpServletRequest request
     ) {
         ErrorResponse response = ErrorResponse.of(
-            HttpStatus.INTERNAL_SERVER_ERROR.value(),
-            HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-            "서버 내부 오류가 발생했습니다.",
-            request.getRequestURI()
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
+                "서버 내부 오류가 발생했습니다.",
+                request.getRequestURI()
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
     }

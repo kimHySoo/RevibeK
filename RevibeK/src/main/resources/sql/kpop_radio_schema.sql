@@ -1,3 +1,4 @@
+``sql
 -- ============================================
 -- K-POP AI 라디오 서비스 — MySQL Schema + Mock Data
 -- 작성일: 2025-05-22
@@ -131,6 +132,7 @@ CREATE TABLE radio_sessions (
   dj_ment        TEXT        NULL     COMMENT 'Claude API 생성 DJ 멘트',
   comfort_text    TEXT        NULL     COMMENT 'AI 위로 메시지',
   novel_excerpt   TEXT        NULL     COMMENT '활용된 소설 구절',
+  playlist_id     CHAR(36)    NULL,
   created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -199,6 +201,10 @@ CREATE TABLE playlist_songs (
   FOREIGN KEY (song_id)     REFERENCES songs(id)     ON DELETE CASCADE,
   INDEX idx_playlist_order (playlist_id, order_num)
 ) ENGINE=InnoDB COMMENT='플레이리스트 구성 곡';
+
+ALTER TABLE radio_sessions
+  ADD CONSTRAINT fk_radio_sessions_playlist
+  FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE SET NULL;
 
 -- 9. 채널 테이블
 CREATE TABLE youtube_channels (
@@ -455,3 +461,17 @@ FLUSH PRIVILEGES;
 
 USE kpop_radio;
 SHOW TABLES;
+```
+
+## 12. migration_add_radio_session_playlist_id.sql 전체 코드
+
+실제 경로: `src/main/resources/sql/migration_add_radio_session_playlist_id.sql`
+
+```sql
+ALTER TABLE radio_sessions
+  ADD COLUMN playlist_id CHAR(36) NULL;
+
+ALTER TABLE radio_sessions
+  ADD CONSTRAINT fk_radio_sessions_playlist
+  FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE SET NULL;
+```

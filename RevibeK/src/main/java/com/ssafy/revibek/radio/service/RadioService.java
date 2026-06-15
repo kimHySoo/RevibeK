@@ -5,6 +5,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.ssafy.revibek.radio.ai.AiDjMentService;
+import com.ssafy.revibek.playlist.dto.PlaylistDto;
+import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
+import com.ssafy.revibek.playlist.service.PlaylistService;
 import com.ssafy.revibek.radio.dto.RadioCreateRequestDto;
 import com.ssafy.revibek.radio.dto.RadioCreateResponseDto;
 import com.ssafy.revibek.radio.dto.RadioRequestDto;
@@ -12,6 +15,7 @@ import com.ssafy.revibek.radio.dto.RadioResponseDto;
 import com.ssafy.revibek.radio.dto.RecommendedSongResponseDto;
 import com.ssafy.revibek.radio.dto.TtsFallbackResponseDto;
 import com.ssafy.revibek.radio.mapper.RadioMapper;
+import com.ssafy.revibek.radio.exception.RadioNotFoundException;
 import com.ssafy.revibek.preference.dto.UserPreferenceDto;
 import com.ssafy.revibek.preference.service.PreferenceService;
 import com.ssafy.revibek.song.dto.SongDto;
@@ -36,6 +40,7 @@ public class RadioService {
     private final AiDjMentService aiDjMentService;
     private final TtsService ttsService;
     private final PreferenceService preferenceService;
+    private final PlaylistService playlistService;
 
     @Transactional
     public RadioCreateResponseDto createRadio(String userId, RadioCreateRequestDto request) {
@@ -44,35 +49,35 @@ public class RadioService {
         normalizeRequest(request, preference);
 
         RecommendationResult recommendationResult = recommendSongs(
-            effectiveMoodForRecommendation(request),
-            normalizeEraForDb(request.getEra()),
-            request.getEra(),
-            request.getGenre(),
-            preference,
-            request.getExcludedKeywords(),
-            DEFAULT_RECOMMENDATION_LIMIT
+                effectiveMoodForRecommendation(request),
+                normalizeEraForDb(request.getEra()),
+                request.getEra(),
+                request.getGenre(),
+                preference,
+                request.getExcludedKeywords(),
+                DEFAULT_RECOMMENDATION_LIMIT
         );
         List<RecommendedSongResponseDto> recommendedSongs = toRecommendedSongs(
-            recommendationResult.songs(),
-            request
+                recommendationResult.songs(),
+                request
         );
 
         String djMent = aiDjMentService.createDjMent(request, recommendedSongs);
         String sessionId = UUID.randomUUID().toString();
         radioMapper.insertRadioSessionWithMent(
-            sessionId,
-            userId,
-            request.getMood(),
-            request.getStory(),
-            request.getEra(),
-            request.getGenre(),
-            request.getSituation(),
-            request.getDesiredMood(),
-            request.getVideoType(),
-            request.getPreferredArtist(),
-            request.getExcludedKeywords(),
-            recommendationResult.source(),
-            djMent
+                sessionId,
+                userId,
+                request.getMood(),
+                request.getStory(),
+                request.getEra(),
+                request.getGenre(),
+                request.getSituation(),
+                request.getDesiredMood(),
+                request.getVideoType(),
+                request.getPreferredArtist(),
+                request.getExcludedKeywords(),
+                recommendationResult.source(),
+                djMent
         );
 
         for (int i = 0; i < recommendedSongs.size(); i++) {
@@ -82,70 +87,106 @@ public class RadioService {
             }
         }
 
+        String playlistId = createRadioPlaylist(userId, request, recommendedSongs);
+        if (playlistId != null) {
+            radioMapper.updateRadioSessionPlaylistId(sessionId, userId, playlistId);
+        }
+
         TtsResponseDto tts = ttsService.synthesize(djMent);
         return RadioCreateResponseDto.builder()
-            .radioSessionId(sessionId)
-            .userId(userId)
-            .mood(request.getMood())
-            .story(request.getStory())
-            .era(request.getEra())
-            .genre(request.getGenre())
-            .situation(request.getSituation())
-            .desiredMood(request.getDesiredMood())
-            .videoType(request.getVideoType())
-            .preferredArtist(request.getPreferredArtist())
-            .excludedKeywords(request.getExcludedKeywords())
-            .djMent(djMent)
-            .recommendationSource(recommendationResult.source())
-            .tts(TtsFallbackResponseDto.from(tts))
-            .recommendedSongs(recommendedSongs)
-            .build();
+                .radioSessionId(sessionId)
+                .playlistId(playlistId)
+                .userId(userId)
+                .mood(request.getMood())
+                .story(request.getStory())
+                .era(request.getEra())
+                .genre(request.getGenre())
+                .situation(request.getSituation())
+                .desiredMood(request.getDesiredMood())
+                .videoType(request.getVideoType())
+                .preferredArtist(request.getPreferredArtist())
+                .excludedKeywords(request.getExcludedKeywords())
+                .djMent(djMent)
+                .recommendationSource(recommendationResult.source())
+                .tts(TtsFallbackResponseDto.from(tts))
+                .recommendedSongs(recommendedSongs)
+                .build();
     }
 
-	//라디오 세션 생성
-	public String createSession(String userId, RadioRequestDto dto) {
+    //라디오 세션 생성
+    public String createSession(String userId, RadioRequestDto dto) {
         RadioCreateRequestDto request = new RadioCreateRequestDto();
         request.setMood(dto.getMood());
         request.setStory(dto.getStory());
         request.setEra(firstNonBlank(dto.getEra(), dto.getGeneration(), "2세대"));
         request.setGenre(firstNonBlank(dto.getGenre(), "댄스"));
-		return createRadio(userId, request).getRadioSessionId();
-	}
-	
-	
-	//세션 단건 조회
-	public RadioResponseDto getSession(String id, String userId) {
-		// TODO: radioMapper.selectRadioSessionByIdAndUserId()
+        return createRadio(userId, request).getRadioSessionId();
+    }
+
+
+    //세션 단건 조회
+    public RadioResponseDto getSession(String id, String userId) {
+        // TODO: radioMapper.selectRadioSessionByIdAndUserId()
         // TODO: radioMapper.selectRecommendationBySessionId()
-		RadioResponseDto session = radioMapper.selectRadioSessionByIdAndUserId(id, userId);
-		if(session == null) {
-			throw new RuntimeException("존재하지 않는 세션이거나 접근 권한이 없습니다.");
-		}
-		List<RadioResponseDto.RadioSongDto> songs = 
-				radioMapper.selectRecommendationBySessionId(id);
-		session.setSongs(songs);
-		return session; 
-	}
-	
-	//유저 세션 목록 조회
-	public List<RadioResponseDto> getSessionByUser(String userId){
-		List<RadioResponseDto> sessions = radioMapper.selectRadioSessionByUserId(userId);
-		for (RadioResponseDto session : sessions) {
-			List<RadioResponseDto.RadioSongDto> songs =
-					radioMapper.selectRecommendationBySessionId(session.getId());
-			session.setSongs(songs);
-		}
-		return sessions;
-	}
+        RadioResponseDto session = radioMapper.selectRadioSessionByIdAndUserId(id, userId);
+        if(session == null) {
+            throw new RadioNotFoundException("존재하지 않는 라디오 세션이거나 접근 권한이 없습니다.");
+        }
+        List<RadioResponseDto.RadioSongDto> songs =
+                radioMapper.selectRecommendationBySessionId(id);
+        session.setSongs(songs);
+        return session;
+    }
+
+    //유저 세션 목록 조회
+    public List<RadioResponseDto> getSessionByUser(String userId){
+        List<RadioResponseDto> sessions = radioMapper.selectRadioSessionByUserId(userId);
+        for (RadioResponseDto session : sessions) {
+            List<RadioResponseDto.RadioSongDto> songs =
+                    radioMapper.selectRecommendationBySessionId(session.getId());
+            session.setSongs(songs);
+        }
+        return sessions;
+    }
+
+    private String createRadioPlaylist(
+            String userId,
+            RadioCreateRequestDto request,
+            List<RecommendedSongResponseDto> recommendedSongs
+    ) {
+        if (recommendedSongs.isEmpty()) {
+            return null;
+        }
+
+        PlaylistDto playlist = playlistService.createPlaylist(
+                userId,
+                PlaylistDto.builder()
+                        .name(firstNonBlank(request.getMood(), "Radio") + " Radio")
+                        .moodTag(firstNonBlank(request.getDesiredMood(), request.getMood(), ""))
+                        .isPublic(false)
+                        .build()
+        );
+
+        for (RecommendedSongResponseDto song : recommendedSongs) {
+            if (StringUtils.hasText(song.getSongId())) {
+                playlistService.addItem(
+                        userId,
+                        playlist.getId(),
+                        PlaylistItemDto.builder().songId(song.getSongId()).build()
+                );
+            }
+        }
+        return playlist.getId();
+    }
 
     private RecommendationResult recommendSongs(
-        String mood,
-        String era,
-        String generation,
-        String genre,
-        UserPreferenceDto preference,
-        String excludedKeywords,
-        int limit
+            String mood,
+            String era,
+            String generation,
+            String genre,
+            UserPreferenceDto preference,
+            String excludedKeywords,
+            int limit
     ) {
         List<SongDto> songs = safeFindByMoodEraGenre(mood, era, generation, genre, excludedKeywords, limit);
         if (!songs.isEmpty()) {
@@ -196,15 +237,15 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByMoodEraGenre(
-        String mood,
-        String era,
-        String generation,
-        String genre,
-        String excludedKeywords,
-        int limit
+            String mood,
+            String era,
+            String generation,
+            String genre,
+            String excludedKeywords,
+            int limit
     ) {
         if (!StringUtils.hasText(mood) || !StringUtils.hasText(era) || !StringUtils.hasText(generation)
-            || !StringUtils.hasText(genre)) {
+                || !StringUtils.hasText(genre)) {
             return List.of();
         }
         try {
@@ -215,11 +256,11 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByMoodEra(
-        String mood,
-        String era,
-        String generation,
-        String excludedKeywords,
-        int limit
+            String mood,
+            String era,
+            String generation,
+            String excludedKeywords,
+            int limit
     ) {
         if (!StringUtils.hasText(mood) || !StringUtils.hasText(era) || !StringUtils.hasText(generation)) {
             return List.of();
@@ -254,11 +295,11 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByEraAndGenre(
-        String era,
-        String generation,
-        String genre,
-        String excludedKeywords,
-        int limit
+            String era,
+            String generation,
+            String genre,
+            String excludedKeywords,
+            int limit
     ) {
         if (!StringUtils.hasText(era) || !StringUtils.hasText(generation) || !StringUtils.hasText(genre)) {
             return List.of();
@@ -298,15 +339,15 @@ public class RadioService {
         }
         try {
             return songDao.findRecommendedSongsByPreference(
-                preference.getPreferredMoods(),
-                preference.getPreferredGenerations(),
-                preference.getPreferredGenerations().stream()
-                    .map(this::normalizeEraForDb)
-                    .toList(),
-                preference.getPreferredGenres(),
-                preference.getPreferredArtists(),
-                excludedKeywords,
-                limit
+                    preference.getPreferredMoods(),
+                    preference.getPreferredGenerations(),
+                    preference.getPreferredGenerations().stream()
+                            .map(this::normalizeEraForDb)
+                            .toList(),
+                    preference.getPreferredGenres(),
+                    preference.getPreferredArtists(),
+                    excludedKeywords,
+                    limit
             );
         } catch (Exception e) {
             return List.of();
@@ -322,22 +363,22 @@ public class RadioService {
     }
 
     private List<RecommendedSongResponseDto> toRecommendedSongs(
-        List<SongDto> songs,
-        RadioCreateRequestDto request
+            List<SongDto> songs,
+            RadioCreateRequestDto request
     ) {
         List<RecommendedSongResponseDto> responses = new ArrayList<>();
         for (SongDto song : songs) {
             responses.add(RecommendedSongResponseDto.builder()
-                .songId(song.getId())
-                .title(song.getTitle())
-                .artist(song.getArtist())
-                .era(toGenerationLabel(song.getEra()))
-                .genre(song.getGenre())
-                .youtubeUrl(resolveYoutubeUrl(song))
-                .youtubeId(song.getYoutubeId())
-                .score(song.getScore())
-                .reason(buildReason(song, request))
-                .build());
+                    .songId(song.getId())
+                    .title(song.getTitle())
+                    .artist(song.getArtist())
+                    .era(toGenerationLabel(song.getEra()))
+                    .genre(song.getGenre())
+                    .youtubeUrl(resolveYoutubeUrl(song))
+                    .youtubeId(song.getYoutubeId())
+                    .score(song.getScore())
+                    .reason(buildReason(song, request))
+                    .build());
         }
         return responses;
     }
@@ -350,11 +391,11 @@ public class RadioService {
         String videoType = StringUtils.hasText(request.getVideoType()) ? " 요청한 " + request.getVideoType() + " 감상 흐름에도 어울립니다." : "";
         if ("2세대".equals(eraLabel)) {
             return "2004년~2011년 전후 2세대 K-POP의 강한 후렴과 무대 감성이 있어 " + mood
-                + " 마음을" + situation + " 환기해줄 곡입니다." + videoType;
+                    + " 마음을" + situation + " 환기해줄 곡입니다." + videoType;
         }
         if ("3세대".equals(eraLabel)) {
             return "2012년~2017년 전후 3세대 K-POP의 감정선과 청춘 서사가 있어 " + mood
-                + " 기분에" + situation + " 어울리는 곡입니다." + videoType;
+                    + " 기분에" + situation + " 어울리는 곡입니다." + videoType;
         }
         return genre + " 장르의 분위기와 높은 추천 점수를 바탕으로" + situation + " 선곡했습니다." + videoType;
     }
@@ -404,11 +445,11 @@ public class RadioService {
         }
         String value = era.trim();
         if ("2".equals(value) || "2세대".equals(value) || "00s".equalsIgnoreCase(value)
-            || "2000년대".equals(value) || value.contains("2000")) {
+                || "2000년대".equals(value) || value.contains("2000")) {
             return "2세대";
         }
         if ("3".equals(value) || "3세대".equals(value) || "10s".equalsIgnoreCase(value)
-            || "2010년대".equals(value) || value.contains("2010")) {
+                || "2010년대".equals(value) || value.contains("2010")) {
             return "3세대";
         }
         return value;
@@ -434,9 +475,9 @@ public class RadioService {
 
     private boolean hasAnyPreference(UserPreferenceDto preference) {
         return !preference.getPreferredMoods().isEmpty()
-            || !preference.getPreferredGenerations().isEmpty()
-            || !preference.getPreferredGenres().isEmpty()
-            || !preference.getPreferredArtists().isEmpty();
+                || !preference.getPreferredGenerations().isEmpty()
+                || !preference.getPreferredGenres().isEmpty()
+                || !preference.getPreferredArtists().isEmpty();
     }
 
     private String firstNonBlank(String... values) {

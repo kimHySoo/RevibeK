@@ -1,4 +1,4 @@
-package com.ssafy.revibek.radio.controller;
+package  com.ssafy.revibek.radio.controller;
 
 import com.ssafy.revibek.radio.dto.RadioCreateRequestDto;
 import com.ssafy.revibek.radio.dto.RadioCreateResponseDto;

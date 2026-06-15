@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 public class RadioResponseDto {
 	
 	private String id;
+	private String playlistId;
 	private String mood;
 	private String story;
 	private String era;
