@@ -12,7 +12,7 @@ public interface SongDao {
     List<SongDto> selectAllSongs();
     SongDto selectSongById(String id);
     SongDto selectSongByYoutubeId(String youtubeId);
-    SongDto selectSongByTitle(String title);
+    List<SongDto> selectSongByTitle(String title);
     List<SongDto> selectSongsByGenre(String genre);
     List<SongDto> selectRecommendSongs();
     int updateSong(SongDto song);
