@@ -11,6 +11,7 @@ import org.springframework.util.StringUtils;
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemBatchResponseDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
+import com.ssafy.revibek.playlist.dto.PlaylistUpdateRequestDto;
 import com.ssafy.revibek.playlist.mapper.PlaylistMapper;
 import com.ssafy.revibek.song.mapper.SongDao;
 
@@ -119,6 +120,28 @@ public class PlaylistService {
         if (deletedRows == 0) {
             throw new IllegalArgumentException("존재하지 않는 플레이리스트 항목입니다.");
         }
+    }
+
+    @Transactional
+    public PlaylistDto updatePlaylist(String userId, String playlistId, PlaylistUpdateRequestDto request) {
+        validateUserId(userId);
+        validatePlaylistId(playlistId);
+
+        PlaylistDto existing = playlistMapper.selectPlaylistByIdAndUserId(playlistId, userId);
+        if (existing == null) {
+            throw new IllegalArgumentException("존재하지 않는 플레이리스트이거나 접근 권한이 없습니다.");
+        }
+
+        String name     = StringUtils.hasText(request.getName())    ? request.getName().trim()    : existing.getName();
+        String moodTag  = request.getMoodTag()  != null             ? trimToNull(request.getMoodTag()) : existing.getMoodTag();
+        Boolean isPublic = request.getIsPublic() != null            ? request.getIsPublic()        : existing.getIsPublic();
+
+        int updatedRows = playlistMapper.updatePlaylist(playlistId, userId, name, moodTag, isPublic);
+        if (updatedRows == 0) {
+            throw new IllegalStateException("플레이리스트 수정에 실패했습니다.");
+        }
+
+        return getPlaylist(userId, playlistId);
     }
 
     @Transactional

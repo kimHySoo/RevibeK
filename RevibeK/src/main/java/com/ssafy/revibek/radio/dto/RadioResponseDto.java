@@ -23,6 +23,8 @@ public class RadioResponseDto {
 	private String excludedKeywords;
 	private String recommendationSource;
 	private String djMent;
+	private Boolean isPublic;
+	private java.time.LocalDateTime publishedAt;
 	private String comfortText;
 	// [FIX] DB 컬럼 novel_excerpt 와 camelCase 매핑이 맞도록 필드명 수정.
 	private String novelExcerpt;

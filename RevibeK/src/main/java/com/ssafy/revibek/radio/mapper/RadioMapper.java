@@ -5,6 +5,9 @@ import java.util.List;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import com.ssafy.revibek.radio.dto.PublicRadioFeedDto;
+import com.ssafy.revibek.radio.dto.PublicRadioSongDto;
+import com.ssafy.revibek.radio.dto.RadioPublicToggleResponseDto;
 import com.ssafy.revibek.radio.dto.RadioResponseDto;
 
 @Mapper
@@ -42,7 +45,18 @@ public interface RadioMapper {
 	                          @Param("reason") String reason);
 	List<RadioResponseDto.RadioSongDto> selectRecommendationBySessionId(@Param("sessionId") String sessionId);
 
+	int updateRadioSessionPublic(@Param("id") String id,
+	                             @Param("userId") String userId,
+	                             @Param("isPublic") boolean isPublic);
 
+	RadioPublicToggleResponseDto selectRadioPublicStatus(@Param("id") String id,
+	                                                     @Param("userId") String userId);
+
+	List<PublicRadioFeedDto> selectPublicRadioSessions(@Param("sort") String sort);
+
+	PublicRadioFeedDto selectPublicRadioSessionById(@Param("id") String id);
+
+	List<PublicRadioSongDto> selectPublicRecommendedSongs(@Param("sessionId") String sessionId);
 
 
 

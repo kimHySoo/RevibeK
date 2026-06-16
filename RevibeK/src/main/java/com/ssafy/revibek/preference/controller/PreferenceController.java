@@ -74,15 +74,9 @@ public class PreferenceController {
     }
 
     private String resolveUserId(Authentication authentication, String headerUserId, String requestUserId) {
-        if (StringUtils.hasText(headerUserId)) {
-            return headerUserId.trim();
-        }
-        if (StringUtils.hasText(requestUserId)) {
-            return requestUserId.trim();
-        }
         if (authentication != null && StringUtils.hasText(authentication.getName())) {
             return authentication.getName();
         }
-        throw new IllegalArgumentException("사용자 ID가 필요합니다. Authorization 또는 X-USER-ID를 전달해주세요.");
+        throw new IllegalArgumentException("로그인 사용자 정보가 필요합니다.");
     }
 }

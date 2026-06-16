@@ -56,6 +56,14 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/v3/api-docs/**"
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/songs/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/reviews/songs/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/challenges").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/challenges/templates").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/challenges/{challengeId}").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/radio/public").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/radio/public/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/radio/*/likes/count").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/users/me").authenticated()
                 .requestMatchers(HttpMethod.PUT, "/api/users/me").authenticated()
                 .requestMatchers(HttpMethod.DELETE, "/api/users/me").authenticated()
@@ -63,6 +71,11 @@ public class SecurityConfig {
                 .requestMatchers("/api/radio/**").authenticated()
                 .requestMatchers("/api/likes/**").authenticated()
                 .requestMatchers("/api/playlists/**").authenticated()
+                .requestMatchers("/api/reviews/**").authenticated()
+                .requestMatchers("/api/follows/**").authenticated()
+                .requestMatchers("/api/plans/**").authenticated()
+                .requestMatchers("/api/challenges/**").authenticated()
+                .requestMatchers("/api/coaching/**").authenticated()
                 .anyRequest().permitAll()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.review.mapper.ReviewMapper">
+
+    <resultMap id="ReviewResponseMap" type="com.ssafy.revibek.review.dto.ReviewResponseDto">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="userNickname" column="user_nickname"/>
+        <result property="songId" column="song_id"/>
+        <result property="content" column="content"/>
+        <result property="rating" column="rating"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertReview">
+        INSERT INTO reviews (id, user_id, song_id, content, rating)
+        VALUES (#{id}, #{userId}, #{songId}, #{content}, #{rating})
+    </insert>
+
+    <select id="selectReviewsBySongId" resultMap="ReviewResponseMap">
+        SELECT r.id, r.user_id, u.nickname AS user_nickname,
+               r.song_id, r.content, r.rating, r.created_at, r.updated_at
+        FROM reviews r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.song_id = #{songId}
+        ORDER BY r.created_at DESC
+    </select>
+
+    <select id="selectReviewsByUserId" resultMap="ReviewResponseMap">
+        SELECT r.id, r.user_id, u.nickname AS user_nickname,
+               r.song_id, r.content, r.rating, r.created_at, r.updated_at
+        FROM reviews r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.user_id = #{userId}
+        ORDER BY r.created_at DESC
+    </select>
+
+    <select id="selectReviewById" resultMap="ReviewResponseMap">
+        SELECT r.id, r.user_id, u.nickname AS user_nickname,
+               r.song_id, r.content, r.rating, r.created_at, r.updated_at
+        FROM reviews r
+        JOIN users u ON u.id = r.user_id
+        WHERE r.id = #{id}
+    </select>
+
+    <update id="updateReview">
+        UPDATE reviews
+        SET content = #{content},
+            rating  = #{rating}
+        WHERE id      = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <delete id="deleteReview">
+        DELETE FROM reviews
+        WHERE id      = #{id}
+          AND user_id = #{userId}
+    </delete>
+
+</mapper>

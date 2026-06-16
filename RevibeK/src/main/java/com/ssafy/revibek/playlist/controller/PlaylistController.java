@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,6 +18,7 @@ import com.ssafy.revibek.playlist.dto.PlaylistDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemBatchRequestDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemBatchResponseDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
+import com.ssafy.revibek.playlist.dto.PlaylistUpdateRequestDto;
 import com.ssafy.revibek.playlist.service.PlaylistService;
 
 import jakarta.validation.Valid;
@@ -68,6 +70,13 @@ public class PlaylistController {
                                                           @PathVariable String itemId) {
         playlistService.deleteItem(authentication.getName(), playlistId, itemId);
         return ResponseEntity.ok(Map.of("message", "플레이리스트 항목 삭제 완료"));
+    }
+
+    @PutMapping("/{playlistId}")
+    public ResponseEntity<PlaylistDto> updatePlaylist(Authentication authentication,
+                                                      @PathVariable String playlistId,
+                                                      @Valid @RequestBody PlaylistUpdateRequestDto request) {
+        return ResponseEntity.ok(playlistService.updatePlaylist(authentication.getName(), playlistId, request));
     }
 
     @DeleteMapping("/{playlistId}")

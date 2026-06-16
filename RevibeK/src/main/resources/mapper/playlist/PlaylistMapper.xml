@@ -126,4 +126,13 @@
           AND id = #{itemId}
     </delete>
 
+    <update id="updatePlaylist">
+        UPDATE playlists
+        SET name      = #{name},
+            mood_tag  = #{moodTag},
+            is_public = #{isPublic}
+        WHERE id      = #{playlistId}
+          AND user_id = #{userId}
+    </update>
+
 </mapper>

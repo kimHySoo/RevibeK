@@ -34,4 +34,10 @@ public interface PlaylistMapper {
 
     int deletePlaylistItem(@Param("playlistId") String playlistId,
                            @Param("itemId") String itemId);
+
+    int updatePlaylist(@Param("playlistId") String playlistId,
+                       @Param("userId")     String userId,
+                       @Param("name")       String name,
+                       @Param("moodTag")    String moodTag,
+                       @Param("isPublic")   Boolean isPublic);
 }

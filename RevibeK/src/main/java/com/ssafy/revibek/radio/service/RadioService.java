@@ -4,19 +4,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
-import com.ssafy.revibek.playlist.dto.PlaylistDto;
-import com.ssafy.revibek.playlist.service.PlaylistService;
-import com.ssafy.revibek.qdrant.QdrantService;
-import com.ssafy.revibek.radio.ai.AiDjMentService;
+import com.ssafy.revibek.follow.mapper.FollowMapper;
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
 import com.ssafy.revibek.playlist.service.PlaylistService;
+import com.ssafy.revibek.qdrant.QdrantService;
+import com.ssafy.revibek.radio.ai.AiDjMentService;
+import com.ssafy.revibek.radio.dto.PublicRadioFeedDto;
 import com.ssafy.revibek.radio.dto.RadioCreateRequestDto;
 import com.ssafy.revibek.radio.dto.RadioCreateResponseDto;
+import com.ssafy.revibek.radio.dto.RadioLikeCountResponseDto;
+import com.ssafy.revibek.radio.dto.RadioLikeResponseDto;
+import com.ssafy.revibek.radio.dto.RadioPublicToggleRequestDto;
+import com.ssafy.revibek.radio.dto.RadioPublicToggleResponseDto;
 import com.ssafy.revibek.radio.dto.RadioRequestDto;
 import com.ssafy.revibek.radio.dto.RadioResponseDto;
 import com.ssafy.revibek.radio.dto.RecommendedSongResponseDto;
 import com.ssafy.revibek.radio.dto.TtsFallbackResponseDto;
+import com.ssafy.revibek.radio.mapper.RadioLikeMapper;
 import com.ssafy.revibek.radio.mapper.RadioMapper;
 import com.ssafy.revibek.radio.exception.RadioNotFoundException;
 import com.ssafy.revibek.preference.dto.UserPreferenceDto;
@@ -46,17 +51,15 @@ public class RadioService {
     private static final int EXPANDED_RECOMMENDATION_LIMIT = 8;
 
     private final RadioMapper radioMapper;
+    private final RadioLikeMapper radioLikeMapper;
+    private final FollowMapper followMapper;
     private final SongDao songDao;
     private final AiDjMentService aiDjMentService;
     private final TtsService ttsService;
     private final PreferenceService preferenceService;
-<<<<<<< HEAD
-    private final PlaylistService playlistService;
-=======
     private final QdrantService qdrantService;
     private final PlaylistService playlistService;
     private final SongService songService;
->>>>>>> a746f487202f343a3ac94c00e48fccafb6211598
 
     @Transactional
     public RadioCreateResponseDto createRadio(String userId, RadioCreateRequestDto request) {
@@ -74,15 +77,7 @@ public class RadioService {
                 DEFAULT_RECOMMENDATION_LIMIT
         );
         List<SongDto> expandedSongs = expandWithQdrant(recommendationResult.songs(), EXPANDED_RECOMMENDATION_LIMIT);
-        List<RecommendedSongResponseDto> recommendedSongs = toRecommendedSongs(
-<<<<<<< HEAD
-                recommendationResult.songs(),
-                request
-=======
-            expandedSongs,
-            request
->>>>>>> a746f487202f343a3ac94c00e48fccafb6211598
-        );
+        List<RecommendedSongResponseDto> recommendedSongs = toRecommendedSongs(expandedSongs, request);
 
         String djMent = aiDjMentService.createDjMent(request, recommendedSongs);
         String sessionId = UUID.randomUUID().toString();
@@ -110,7 +105,6 @@ public class RadioService {
         }
 
         String playlistId = createRadioPlaylist(userId, request, recommendedSongs);
-<<<<<<< HEAD
         if (playlistId != null) {
             radioMapper.updateRadioSessionPlaylistId(sessionId, userId, playlistId);
         }
@@ -134,31 +128,8 @@ public class RadioService {
                 .tts(TtsFallbackResponseDto.from(tts))
                 .recommendedSongs(recommendedSongs)
                 .build();
-=======
-
-        TtsResponseDto tts = ttsService.synthesize(djMent);
-        return RadioCreateResponseDto.builder()
-            .radioSessionId(sessionId)
-            .userId(userId)
-            .mood(request.getMood())
-            .story(request.getStory())
-            .era(request.getEra())
-            .genre(request.getGenre())
-            .situation(request.getSituation())
-            .desiredMood(request.getDesiredMood())
-            .videoType(request.getVideoType())
-            .preferredArtist(request.getPreferredArtist())
-            .excludedKeywords(request.getExcludedKeywords())
-            .djMent(djMent)
-            .recommendationSource(recommendationResult.source())
-            .playlistId(playlistId)
-            .tts(TtsFallbackResponseDto.from(tts))
-            .recommendedSongs(recommendedSongs)
-            .build();
->>>>>>> a746f487202f343a3ac94c00e48fccafb6211598
     }
 
-    //라디오 세션 생성
     public String createSession(String userId, RadioRequestDto dto) {
         RadioCreateRequestDto request = new RadioCreateRequestDto();
         request.setMood(dto.getMood());
@@ -168,23 +139,22 @@ public class RadioService {
         return createRadio(userId, request).getRadioSessionId();
     }
 
-
-    //세션 단건 조회
     public RadioResponseDto getSession(String id, String userId) {
-        // TODO: radioMapper.selectRadioSessionByIdAndUserId()
-        // TODO: radioMapper.selectRecommendationBySessionId()
+        validateUserId(userId);
+        if (!StringUtils.hasText(id)) {
+            throw new IllegalArgumentException("라디오 세션 ID가 필요합니다.");
+        }
         RadioResponseDto session = radioMapper.selectRadioSessionByIdAndUserId(id, userId);
-        if(session == null) {
+        if (session == null) {
             throw new RadioNotFoundException("존재하지 않는 라디오 세션이거나 접근 권한이 없습니다.");
         }
-        List<RadioResponseDto.RadioSongDto> songs =
-                radioMapper.selectRecommendationBySessionId(id);
+        List<RadioResponseDto.RadioSongDto> songs = radioMapper.selectRecommendationBySessionId(id);
         session.setSongs(songs);
         return session;
     }
 
-    //유저 세션 목록 조회
-    public List<RadioResponseDto> getSessionByUser(String userId){
+    @Transactional
+    public List<RadioResponseDto> getSessionByUser(String userId) {
         List<RadioResponseDto> sessions = radioMapper.selectRadioSessionByUserId(userId);
         for (RadioResponseDto session : sessions) {
             List<RadioResponseDto.RadioSongDto> songs =
@@ -194,34 +164,111 @@ public class RadioService {
         return sessions;
     }
 
+    @Transactional
+    public RadioPublicToggleResponseDto togglePublic(String userId, String radioSessionId,
+                                                     RadioPublicToggleRequestDto request) {
+        validateUserId(userId);
+        if (!StringUtils.hasText(radioSessionId)) {
+            throw new IllegalArgumentException("라디오 세션 ID가 필요합니다.");
+        }
+        if (request.getIsPublic() == null) {
+            throw new IllegalArgumentException("isPublic 값이 필요합니다.");
+        }
+
+        int updated = radioMapper.updateRadioSessionPublic(radioSessionId, userId, request.getIsPublic());
+        if (updated == 0) {
+            throw new IllegalArgumentException("존재하지 않는 라디오 세션이거나 접근 권한이 없습니다.");
+        }
+
+        return radioMapper.selectRadioPublicStatus(radioSessionId, userId);
+    }
+
+    public List<PublicRadioFeedDto> getPublicSessions(String sort, String currentUserId) {
+        String sortParam = "popular".equals(sort) ? "popular" : "latest";
+        List<PublicRadioFeedDto> sessions = radioMapper.selectPublicRadioSessions(sortParam);
+        for (PublicRadioFeedDto session : sessions) {
+            if (StringUtils.hasText(currentUserId)) {
+                session.setLiked(radioLikeMapper.existsRadioLike(session.getRadioSessionId(), currentUserId) > 0);
+                session.setFollowed(followMapper.countFollow(currentUserId, session.getUserId()) > 0);
+            }
+            session.setRecommendedSongs(radioMapper.selectPublicRecommendedSongs(session.getRadioSessionId()));
+        }
+        return sessions;
+    }
+
+    public PublicRadioFeedDto getPublicSession(String id, String currentUserId) {
+        if (!StringUtils.hasText(id)) {
+            throw new IllegalArgumentException("라디오 세션 ID가 필요합니다.");
+        }
+        PublicRadioFeedDto session = radioMapper.selectPublicRadioSessionById(id);
+        if (session == null) {
+            throw new RadioNotFoundException("존재하지 않는 공개 라디오 사연입니다.");
+        }
+        if (StringUtils.hasText(currentUserId)) {
+            session.setLiked(radioLikeMapper.existsRadioLike(id, currentUserId) > 0);
+            session.setFollowed(followMapper.countFollow(currentUserId, session.getUserId()) > 0);
+        }
+        session.setRecommendedSongs(radioMapper.selectPublicRecommendedSongs(id));
+        return session;
+    }
+
+    @Transactional
+    public RadioLikeResponseDto addRadioLike(String userId, String radioSessionId) {
+        validateUserId(userId);
+        radioLikeMapper.insertRadioLike(radioSessionId, userId);
+        return new RadioLikeResponseDto(radioSessionId, true);
+    }
+
+    @Transactional
+    public RadioLikeResponseDto removeRadioLike(String userId, String radioSessionId) {
+        validateUserId(userId);
+        radioLikeMapper.deleteRadioLike(radioSessionId, userId);
+        return new RadioLikeResponseDto(radioSessionId, false);
+    }
+
+    public RadioLikeResponseDto getRadioLikeStatus(String userId, String radioSessionId) {
+        validateUserId(userId);
+        boolean liked = radioLikeMapper.existsRadioLike(radioSessionId, userId) > 0;
+        return new RadioLikeResponseDto(radioSessionId, liked);
+    }
+
+    public RadioLikeCountResponseDto getRadioLikeCount(String radioSessionId) {
+        int count = radioLikeMapper.countRadioLikes(radioSessionId);
+        return new RadioLikeCountResponseDto(radioSessionId, count);
+    }
+
     private String createRadioPlaylist(
             String userId,
             RadioCreateRequestDto request,
             List<RecommendedSongResponseDto> recommendedSongs
     ) {
-        if (recommendedSongs.isEmpty()) {
+        List<String> songIds = recommendedSongs.stream()
+                .map(RecommendedSongResponseDto::getSongId)
+                .filter(StringUtils::hasText)
+                .toList();
+
+        if (songIds.isEmpty()) {
             return null;
         }
 
         PlaylistDto playlist = playlistService.createPlaylist(
                 userId,
                 PlaylistDto.builder()
-                        .name(firstNonBlank(request.getMood(), "Radio") + " Radio")
+                        .name(buildPlaylistName(request))
                         .moodTag(firstNonBlank(request.getDesiredMood(), request.getMood(), ""))
                         .isPublic(false)
                         .build()
         );
 
-        for (RecommendedSongResponseDto song : recommendedSongs) {
-            if (StringUtils.hasText(song.getSongId())) {
-                playlistService.addItem(
-                        userId,
-                        playlist.getId(),
-                        PlaylistItemDto.builder().songId(song.getSongId()).build()
-                );
-            }
-        }
+        playlistService.addItems(userId, playlist.getId(), songIds);
         return playlist.getId();
+    }
+
+    private String buildPlaylistName(RadioCreateRequestDto request) {
+        String mood = StringUtils.hasText(request.getMood()) ? request.getMood() : "감성";
+        String era = StringUtils.hasText(request.getEra()) ? request.getEra() : "";
+        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
+        return String.format("%s %s 라디오 - %s", mood, era, date).replaceAll("\\s+", " ").trim();
     }
 
     private List<SongDto> expandWithQdrant(List<SongDto> seedSongs, int totalLimit) {
@@ -231,8 +278,8 @@ public class RadioService {
 
         List<SongDto> result = new ArrayList<>(seedSongs);
         Set<String> seenIds = result.stream()
-            .map(SongDto::getId)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
+                .map(SongDto::getId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         String seedId = seedSongs.get(0).getId();
         List<String> similarIds = qdrantService.searchSimilar(seedId, totalLimit);
@@ -253,98 +300,42 @@ public class RadioService {
         return result;
     }
 
-    private String createRadioPlaylist(String userId, RadioCreateRequestDto request, List<RecommendedSongResponseDto> recommendedSongs) {
-        List<String> songIds = recommendedSongs.stream()
-            .map(RecommendedSongResponseDto::getSongId)
-            .filter(StringUtils::hasText)
-            .toList();
-
-        if (songIds.isEmpty()) {
-            return null;
-        }
-
-        PlaylistDto playlist = playlistService.createPlaylist(userId, PlaylistDto.builder()
-            .name(buildPlaylistName(request))
-            .moodTag(request.getMood())
-            .isPublic(false)
-            .build());
-
-        playlistService.addItems(userId, playlist.getId(), songIds);
-        return playlist.getId();
-    }
-
-    private String buildPlaylistName(RadioCreateRequestDto request) {
-        String mood = StringUtils.hasText(request.getMood()) ? request.getMood() : "감성";
-        String era = StringUtils.hasText(request.getEra()) ? request.getEra() : "";
-        String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
-        return String.format("%s %s 라디오 - %s", mood, era, date).replaceAll("\\s+", " ").trim();
-    }
-
     private RecommendationResult recommendSongs(
-            String mood,
-            String era,
-            String generation,
-            String genre,
-            UserPreferenceDto preference,
-            String excludedKeywords,
-            int limit
+            String mood, String era, String generation, String genre,
+            UserPreferenceDto preference, String excludedKeywords, int limit
     ) {
         List<SongDto> songs = safeFindByMoodEraGenre(mood, era, generation, genre, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_MOOD_ERA_GENRE", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_ERA_GENRE", songs);
 
         songs = safeFindByMoodEra(mood, era, generation, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_MOOD_ERA_FALLBACK", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_ERA_FALLBACK", songs);
 
         songs = safeFindByMoodGenre(mood, genre, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_MOOD_GENRE_FALLBACK", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_GENRE_FALLBACK", songs);
 
         songs = safeFindByMood(mood, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_MOOD_FALLBACK", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_FALLBACK", songs);
 
         songs = safeFindByEraAndGenre(era, generation, genre, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_ERA_GENRE", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_ERA_GENRE", songs);
 
         songs = safeFindByEra(era, generation, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_ERA_FALLBACK", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_ERA_FALLBACK", songs);
 
         songs = safeFindByGenre(genre, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_GENRE_FALLBACK", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_GENRE_FALLBACK", songs);
 
         songs = safeFindByPreference(preference, excludedKeywords, limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_USER_PREFERENCE_FALLBACK", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_USER_PREFERENCE_FALLBACK", songs);
 
         songs = safeFindTopScore(limit);
-        if (!songs.isEmpty()) {
-            return new RecommendationResult("DB_SCORE_FALLBACK", songs);
-        }
+        if (!songs.isEmpty()) return new RecommendationResult("DB_SCORE_FALLBACK", songs);
 
         return new RecommendationResult("DB_EMPTY", List.of());
     }
 
-    private List<SongDto> safeFindByMoodEraGenre(
-            String mood,
-            String era,
-            String generation,
-            String genre,
-            String excludedKeywords,
-            int limit
-    ) {
+    private List<SongDto> safeFindByMoodEraGenre(String mood, String era, String generation, String genre,
+                                                   String excludedKeywords, int limit) {
         if (!StringUtils.hasText(mood) || !StringUtils.hasText(era) || !StringUtils.hasText(generation)
                 || !StringUtils.hasText(genre)) {
             return List.of();
@@ -356,13 +347,8 @@ public class RadioService {
         }
     }
 
-    private List<SongDto> safeFindByMoodEra(
-            String mood,
-            String era,
-            String generation,
-            String excludedKeywords,
-            int limit
-    ) {
+    private List<SongDto> safeFindByMoodEra(String mood, String era, String generation,
+                                              String excludedKeywords, int limit) {
         if (!StringUtils.hasText(mood) || !StringUtils.hasText(era) || !StringUtils.hasText(generation)) {
             return List.of();
         }
@@ -374,9 +360,7 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByMoodGenre(String mood, String genre, String excludedKeywords, int limit) {
-        if (!StringUtils.hasText(mood) || !StringUtils.hasText(genre)) {
-            return List.of();
-        }
+        if (!StringUtils.hasText(mood) || !StringUtils.hasText(genre)) return List.of();
         try {
             return songDao.findRecommendedSongsByMoodGenre(mood, genre, excludedKeywords, limit);
         } catch (Exception e) {
@@ -385,9 +369,7 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByMood(String mood, String excludedKeywords, int limit) {
-        if (!StringUtils.hasText(mood)) {
-            return List.of();
-        }
+        if (!StringUtils.hasText(mood)) return List.of();
         try {
             return songDao.findRecommendedSongsByMood(mood, excludedKeywords, limit);
         } catch (Exception e) {
@@ -395,13 +377,8 @@ public class RadioService {
         }
     }
 
-    private List<SongDto> safeFindByEraAndGenre(
-            String era,
-            String generation,
-            String genre,
-            String excludedKeywords,
-            int limit
-    ) {
+    private List<SongDto> safeFindByEraAndGenre(String era, String generation, String genre,
+                                                  String excludedKeywords, int limit) {
         if (!StringUtils.hasText(era) || !StringUtils.hasText(generation) || !StringUtils.hasText(genre)) {
             return List.of();
         }
@@ -413,9 +390,7 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByEra(String era, String generation, String excludedKeywords, int limit) {
-        if (!StringUtils.hasText(era) || !StringUtils.hasText(generation)) {
-            return List.of();
-        }
+        if (!StringUtils.hasText(era) || !StringUtils.hasText(generation)) return List.of();
         try {
             return songDao.findRecommendedSongsByEra(era, generation, excludedKeywords, limit);
         } catch (Exception e) {
@@ -424,9 +399,7 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByGenre(String genre, String excludedKeywords, int limit) {
-        if (!StringUtils.hasText(genre)) {
-            return List.of();
-        }
+        if (!StringUtils.hasText(genre)) return List.of();
         try {
             return songDao.findRecommendedSongsByGenre(genre, excludedKeywords, limit);
         } catch (Exception e) {
@@ -435,9 +408,7 @@ public class RadioService {
     }
 
     private List<SongDto> safeFindByPreference(UserPreferenceDto preference, String excludedKeywords, int limit) {
-        if (preference == null || !hasAnyPreference(preference)) {
-            return List.of();
-        }
+        if (preference == null || !hasAnyPreference(preference)) return List.of();
         try {
             return songDao.findRecommendedSongsByPreference(
                     preference.getPreferredMoods(),
@@ -463,10 +434,7 @@ public class RadioService {
         }
     }
 
-    private List<RecommendedSongResponseDto> toRecommendedSongs(
-            List<SongDto> songs,
-            RadioCreateRequestDto request
-    ) {
+    private List<RecommendedSongResponseDto> toRecommendedSongs(List<SongDto> songs, RadioCreateRequestDto request) {
         List<RecommendedSongResponseDto> responses = new ArrayList<>();
         for (SongDto song : songs) {
             responses.add(RecommendedSongResponseDto.builder()
@@ -502,9 +470,7 @@ public class RadioService {
     }
 
     private String resolveYoutubeUrl(SongDto song) {
-        if (StringUtils.hasText(song.getYoutubeUrl())) {
-            return song.getYoutubeUrl();
-        }
+        if (StringUtils.hasText(song.getYoutubeUrl())) return song.getYoutubeUrl();
         if (StringUtils.hasText(song.getYoutubeId())) {
             return "https://www.youtube.com/watch?v=" + song.getYoutubeId();
         }
@@ -531,19 +497,13 @@ public class RadioService {
 
     private String normalizeEraForDb(String era) {
         String normalized = toGenerationLabel(era);
-        if ("2세대".equals(normalized)) {
-            return "00s";
-        }
-        if ("3세대".equals(normalized)) {
-            return "10s";
-        }
+        if ("2세대".equals(normalized)) return "00s";
+        if ("3세대".equals(normalized)) return "10s";
         return normalized;
     }
 
     private String toGenerationLabel(String era) {
-        if (!StringUtils.hasText(era)) {
-            return "미지정";
-        }
+        if (!StringUtils.hasText(era)) return "미지정";
         String value = era.trim();
         if ("2".equals(value) || "2세대".equals(value) || "00s".equalsIgnoreCase(value)
                 || "2000년대".equals(value) || value.contains("2000")) {
@@ -554,13 +514,6 @@ public class RadioService {
             return "3세대";
         }
         return value;
-    }
-
-    private String trimOrThrow(String value, String fieldName) {
-        if (!StringUtils.hasText(value)) {
-            throw new IllegalArgumentException(fieldName + "는 필수입니다.");
-        }
-        return value.trim();
     }
 
     private String effectiveMoodForRecommendation(RadioCreateRequestDto request) {
@@ -583,13 +536,10 @@ public class RadioService {
 
     private String firstNonBlank(String... values) {
         for (String value : values) {
-            if (StringUtils.hasText(value)) {
-                return value.trim();
-            }
+            if (StringUtils.hasText(value)) return value.trim();
         }
         return "";
     }
 
-    private record RecommendationResult(String source, List<SongDto> songs) {
-    }
+    private record RecommendationResult(String source, List<SongDto> songs) {}
 }
