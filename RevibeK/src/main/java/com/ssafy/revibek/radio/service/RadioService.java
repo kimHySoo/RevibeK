@@ -317,7 +317,7 @@ public class RadioService {
             }
         }
 
-        // DB에 없거나 Qdrant 미등록 → FastAPI 실시간 분석 후 벡터 검색
+        // DB에 없거나 Qdrant 미등록 → FastAPI 실시간 분석 (RestTemplate 3분 타임아웃)
         try {
             AnalyzeResponseDto analysis = analysisService.analyzeByUrl(youtubeUrl);
             if (analysis == null || analysis.getEmbedding() == null || analysis.getEmbedding().isEmpty()) {

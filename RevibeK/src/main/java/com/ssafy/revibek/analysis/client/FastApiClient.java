@@ -4,6 +4,7 @@ import com.ssafy.revibek.analysis.dto.AnalyzeRequestDto;
 import com.ssafy.revibek.analysis.dto.AnalyzeResponseDto;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
@@ -16,7 +17,14 @@ public class FastApiClient {
     @Value("${fastapi.host:http://localhost:8000}")
     private String fastApiHost;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = buildRestTemplate();
+
+    private static RestTemplate buildRestTemplate() {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(10_000);
+        factory.setReadTimeout(180_000);
+        return new RestTemplate(factory);
+    }
 
     public AnalyzeResponseDto analyze(AnalyzeRequestDto request) {
         if (!enabled) {
