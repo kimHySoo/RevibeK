@@ -16,4 +16,5 @@ public class RadioCreateRequestDto {
     private String videoType;
     private String preferredArtist;
     private String excludedKeywords;
+    private String youtubeUrl;
 }

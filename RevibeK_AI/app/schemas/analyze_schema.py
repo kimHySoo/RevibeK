@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
 
 class AnalyzeRequest(BaseModel):
@@ -25,5 +25,9 @@ class AnalyzeResponse(BaseModel):
     loudness: Optional[float] = None
     musical_key: Optional[str] = None
     musical_scale: Optional[str] = None
-    # Essentia로 추출한 전체 feature (JSON 직렬화 가능)
+    spectral_centroid: Optional[float] = None
+    zero_crossing_rate: Optional[float] = None
+    # librosa 분석에서 생성한 9차원 임베딩 (Spring Boot Qdrant 저장용)
+    embedding: Optional[List[float]] = None
+    # librosa로 추출한 전체 feature (JSON 직렬화 가능)
     essentia_features: Optional[dict] = None

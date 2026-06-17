@@ -76,7 +76,8 @@ public class RadioService {
                 request.getExcludedKeywords(),
                 DEFAULT_RECOMMENDATION_LIMIT
         );
-        List<SongDto> expandedSongs = expandWithQdrant(recommendationResult.songs(), EXPANDED_RECOMMENDATION_LIMIT);
+        List<SongDto> seedSongs = applyYoutubeUrlSeed(recommendationResult.songs(), request.getYoutubeUrl());
+        List<SongDto> expandedSongs = expandWithQdrant(seedSongs, EXPANDED_RECOMMENDATION_LIMIT);
         List<RecommendedSongResponseDto> recommendedSongs = toRecommendedSongs(expandedSongs, request);
 
         String djMent = aiDjMentService.createDjMent(request, recommendedSongs);
@@ -539,6 +540,31 @@ public class RadioService {
             if (StringUtils.hasText(value)) return value.trim();
         }
         return "";
+    }
+
+    private List<SongDto> applyYoutubeUrlSeed(List<SongDto> recommended, String youtubeUrl) {
+        if (!StringUtils.hasText(youtubeUrl)) return recommended;
+        String ytId = extractYoutubeId(youtubeUrl);
+        if (!StringUtils.hasText(ytId)) return recommended;
+        SongDto userSong = songDao.selectSongByYoutubeId(ytId);
+        if (userSong == null) return recommended;
+
+        List<SongDto> result = new ArrayList<>();
+        result.add(userSong);
+        for (SongDto s : recommended) {
+            if (!userSong.getId().equals(s.getId())) result.add(s);
+        }
+        return result;
+    }
+
+    private String extractYoutubeId(String url) {
+        if (!StringUtils.hasText(url)) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("(?:youtu\\.be/|youtube\\.com/(?:watch\\?v=|embed/|shorts/))([a-zA-Z0-9_-]{11})")
+            .matcher(url);
+        if (m.find()) return m.group(1);
+        if (url.matches("[a-zA-Z0-9_-]{11}")) return url;
+        return null;
     }
 
     private record RecommendationResult(String source, List<SongDto> songs) {}

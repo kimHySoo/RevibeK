@@ -3,6 +3,7 @@ package com.ssafy.revibek.analysis.service;
 import com.ssafy.revibek.analysis.client.FastApiClient;
 import com.ssafy.revibek.analysis.dto.AnalyzeRequestDto;
 import com.ssafy.revibek.analysis.dto.AnalyzeResponseDto;
+import com.ssafy.revibek.qdrant.QdrantService;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.service.SongService;
 import com.ssafy.revibek.youtube.dto.YoutubeVideoDto;
@@ -20,6 +21,7 @@ public class AnalysisServiceImpl implements AnalysisService {
     private final SongService songService;
     private final YoutubeMapper youtubeMapper;
     private final YoutubeService youtubeService;
+    private final QdrantService qdrantService;
 
     @Override
     public AnalyzeResponseDto analyze(SongDto song) {
@@ -59,7 +61,10 @@ public class AnalysisServiceImpl implements AnalysisService {
                 song.setLoudness(response.getLoudness());
                 song.setMusicalKey(response.getMusicalKey());
                 song.setMusicalScale(response.getMusicalScale());
+                song.setSpectralCentroid(response.getSpectralCentroid());
+                song.setZeroCrossingRate(response.getZeroCrossingRate());
                 songService.modifySong(song);
+                qdrantService.upsertSongWithEmbedding(song, response.getEmbedding());
                 System.out.println("[Analysis] 완료: " + song.getTitle()
                     + " (source=" + response.getSource() + ")");
             }
@@ -134,6 +139,8 @@ public class AnalysisServiceImpl implements AnalysisService {
                 .loudness(response.getLoudness())
                 .musicalKey(response.getMusicalKey())
                 .musicalScale(response.getMusicalScale())
+                .spectralCentroid(response.getSpectralCentroid())
+                .zeroCrossingRate(response.getZeroCrossingRate())
                 .isAnalyzed(1);
 
             if (stats != null) {
@@ -143,6 +150,11 @@ public class AnalysisServiceImpl implements AnalysisService {
             }
 
             songService.registerSong(builder.build());
+            // DB에 저장된 song을 다시 조회해 UUID 확보 후 Qdrant upsert
+            SongDto saved = songService.getSongByYoutubeId(youtubeId);
+            if (saved != null) {
+                qdrantService.upsertSongWithEmbedding(saved, response.getEmbedding());
+            }
         } else {
             song.setDurationSeconds(response.getDurationSeconds());
             song.setBpm(response.getBpm());
@@ -151,6 +163,8 @@ public class AnalysisServiceImpl implements AnalysisService {
             song.setLoudness(response.getLoudness());
             song.setMusicalKey(response.getMusicalKey());
             song.setMusicalScale(response.getMusicalScale());
+            song.setSpectralCentroid(response.getSpectralCentroid());
+            song.setZeroCrossingRate(response.getZeroCrossingRate());
             song.setIsAnalyzed(1);
 
             if (stats != null) {
@@ -160,6 +174,7 @@ public class AnalysisServiceImpl implements AnalysisService {
             }
 
             songService.modifySong(song);
+            qdrantService.upsertSongWithEmbedding(song, response.getEmbedding());
         }
     }
 

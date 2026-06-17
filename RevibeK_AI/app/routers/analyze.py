@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import APIRouter
 
 from app.schemas.analyze_schema import AnalyzeRequest, AnalyzeResponse
-from app.services import download_service, essentia_service
+from app.services import download_service, embedding_service, essentia_service
 
 router = APIRouter(prefix="/api/ai", tags=["analyze"])
 logger = logging.getLogger(__name__)
@@ -122,6 +122,24 @@ async def analyze_music(request: AnalyzeRequest):
             duration_seconds=request.duration_seconds,
         )
 
+    # ── 4.5. 임베딩 생성 (오디오 삭제 전) ────────────────────────────────────
+    ef = features["essentia_features"]
+    embedding = None
+    try:
+        embedding = embedding_service.create_embedding(
+            bpm=features["bpm"],
+            energy=features["energy"],
+            danceability=features["danceability"],
+            loudness=features["loudness"],
+            musical_key=features["musical_key"],
+            musical_scale=features["musical_scale"],
+            spectral_centroid=ef.get("spectral_centroid", 0.0),
+            zero_crossing_rate=ef.get("zero_crossing_rate", 0.0),
+        )
+        logger.info("임베딩 생성 완료: %s (%dD)", request.youtube_video_id, len(embedding))
+    except Exception as e:
+        logger.warning("임베딩 생성 실패 (Qdrant 미저장): %s", e)
+
     # ── 5. 결과 JSON 저장 ─────────────────────────────────────────────────────
     result_data = {
         "youtube_video_id": request.youtube_video_id,
@@ -135,6 +153,9 @@ async def analyze_music(request: AnalyzeRequest):
         "loudness": features["loudness"],
         "musical_key": features["musical_key"],
         "musical_scale": features["musical_scale"],
+        "spectral_centroid": ef.get("spectral_centroid"),
+        "zero_crossing_rate": ef.get("zero_crossing_rate"),
+        "embedding": embedding,
         "essentia_features": features["essentia_features"],
     }
 
@@ -153,7 +174,6 @@ async def analyze_music(request: AnalyzeRequest):
         title=request.title,
         status="COMPLETED",
         message="분석 완료",
-        # 오디오는 삭제됐으므로 경로 반환하지 않음
         audio_path=None,
         duration_seconds=features["duration_seconds"],
         bpm=features["bpm"],
@@ -162,5 +182,8 @@ async def analyze_music(request: AnalyzeRequest):
         loudness=features["loudness"],
         musical_key=features["musical_key"],
         musical_scale=features["musical_scale"],
+        spectral_centroid=ef.get("spectral_centroid"),
+        zero_crossing_rate=ef.get("zero_crossing_rate"),
+        embedding=embedding,
         essentia_features=features["essentia_features"],
     )

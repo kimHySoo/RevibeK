@@ -112,6 +112,43 @@ public class QdrantService {
         }
     }
 
+    /**
+     * FastAPI embedding_service가 생성한 벡터를 직접 저장한다.
+     * embedding이 null이면 SongVectorUtil 폴백으로 upsert한다.
+     */
+    public void upsertSongWithEmbedding(SongDto song, List<Float> embedding) {
+        if (!enabled) {
+            log.info("Qdrant disabled. Skip upsert: {}", song.getId());
+            return;
+        }
+        if (song.getId() == null) return;
+
+        float[] vector;
+        if (embedding != null && !embedding.isEmpty()) {
+            vector = new float[embedding.size()];
+            for (int i = 0; i < embedding.size(); i++) vector[i] = embedding.get(i);
+        } else {
+            vector = SongVectorUtil.toVector(song);
+        }
+        if (vector == null) {
+            log.warn("벡터 생성 불가 (분석값 없음): {}", song.getId());
+            return;
+        }
+
+        try {
+            qdrantClient.upsertAsync(collection, List.of(
+                PointStruct.newBuilder()
+                    .setId(id(UUID.fromString(song.getId())))
+                    .setVectors(vectors(vector))
+                    .putAllPayload(buildPayload(song))
+                    .build()
+            )).get();
+            log.info("Qdrant upsert 완료 (embedding): songId={}", song.getId());
+        } catch (Exception e) {
+            log.warn("Qdrant upsert 실패. songId={}, reason={}", song.getId(), e.getMessage());
+        }
+    }
+
     public List<String> searchSimilar(String songId, int limit) {
         if (!enabled) {
             log.info("Qdrant disabled. Return empty vector result for songId={}", songId);
