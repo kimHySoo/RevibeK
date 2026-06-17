@@ -5,6 +5,8 @@ import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.mail.MailAuthenticationException;
+import org.springframework.mail.MailException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -13,7 +15,9 @@ import com.ssafy.revibek.common.dto.ErrorResponse;
 import com.ssafy.revibek.radio.exception.RadioNotFoundException;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -65,11 +69,47 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
+    // SMTP 인증 실패 (잘못된 계정/비밀번호, Gmail 앱 비밀번호 미사용 등)
+    @ExceptionHandler(MailAuthenticationException.class)
+    public ResponseEntity<ErrorResponse> handleMailAuthentication(
+            MailAuthenticationException exception,
+            HttpServletRequest request
+    ) {
+        log.error("[GlobalExceptionHandler] SMTP 인증 실패 — path: {}, message: {}",
+                  request.getRequestURI(), exception.getMessage());
+        ErrorResponse response = ErrorResponse.of(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),
+                "이메일 발송 서버 인증에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
+
+    // 기타 메일 발송 실패
+    @ExceptionHandler(MailException.class)
+    public ResponseEntity<ErrorResponse> handleMailFailure(
+            MailException exception,
+            HttpServletRequest request
+    ) {
+        log.error("[GlobalExceptionHandler] 메일 발송 실패 — path: {}, message: {}",
+                  request.getRequestURI(), exception.getMessage());
+        ErrorResponse response = ErrorResponse.of(
+                HttpStatus.SERVICE_UNAVAILABLE.value(),
+                HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),
+                "이메일 발송에 실패했습니다. 잠시 후 다시 시도해주세요.",
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(response);
+    }
+
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntime(
             RuntimeException exception,
             HttpServletRequest request
     ) {
+        log.error("[GlobalExceptionHandler] RuntimeException — path: {}, message: {}",
+                  request.getRequestURI(), exception.getMessage());
         ErrorResponse response = ErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
@@ -84,6 +124,7 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
+        log.error("[GlobalExceptionHandler] Unexpected Exception — path: {}", request.getRequestURI(), exception);
         ErrorResponse response = ErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
