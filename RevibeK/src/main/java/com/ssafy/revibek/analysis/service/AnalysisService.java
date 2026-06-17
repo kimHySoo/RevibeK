@@ -6,6 +6,13 @@ import com.ssafy.revibek.youtube.dto.YoutubeVideoDto;
 
 public interface AnalysisService {
     AnalyzeResponseDto analyze(SongDto song);
+
+    /**
+     * YouTube URL을 직접 받아 FastAPI로 오디오를 분석하고 9D 임베딩을 반환한다.
+     * DB 저장 및 Qdrant upsert는 하지 않는다 (실시간 검색 전용).
+     */
+    AnalyzeResponseDto analyzeByUrl(String youtubeUrl);
+
     void analyzeAndSave(SongDto song);
     void analyzeAndSave(YoutubeVideoDto video);
     void upsertSongFromAnalysis(String youtubeId, String youtubeUrl, String title, AnalyzeResponseDto response);

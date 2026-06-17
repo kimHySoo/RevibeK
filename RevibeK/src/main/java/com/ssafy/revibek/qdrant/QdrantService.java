@@ -149,6 +149,39 @@ public class QdrantService {
         }
     }
 
+    /**
+     * 9D 임베딩 벡터로 Qdrant를 직접 검색한다.
+     * DB에 없는 외부 URL을 실시간 분석한 결과로 유사곡을 찾을 때 사용한다.
+     */
+    public List<String> searchByVector(List<Float> embedding, int limit) {
+        if (!enabled) {
+            log.info("Qdrant disabled. Return empty vector result for searchByVector");
+            return List.of();
+        }
+        if (embedding == null || embedding.isEmpty()) return List.of();
+
+        float[] vector = new float[embedding.size()];
+        for (int i = 0; i < embedding.size(); i++) vector[i] = embedding.get(i);
+
+        try {
+            List<ScoredPoint> results = qdrantClient.queryAsync(
+                QueryPoints.newBuilder()
+                    .setCollectionName(collection)
+                    .setQuery(nearest(vector))
+                    .setLimit((long) limit)
+                    .setWithPayload(enable(true))
+                    .build()
+            ).get();
+
+            return results.stream()
+                .map(p -> p.getId().getUuid())
+                .toList();
+        } catch (Exception e) {
+            log.warn("Qdrant 벡터 검색 실패: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
     public List<String> searchSimilar(String songId, int limit) {
         if (!enabled) {
             log.info("Qdrant disabled. Return empty vector result for songId={}", songId);

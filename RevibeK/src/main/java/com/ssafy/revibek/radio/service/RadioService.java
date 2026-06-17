@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import com.ssafy.revibek.analysis.dto.AnalyzeResponseDto;
+import com.ssafy.revibek.analysis.service.AnalysisService;
 import com.ssafy.revibek.follow.mapper.FollowMapper;
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
@@ -42,7 +44,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RadioService {
@@ -60,6 +64,7 @@ public class RadioService {
     private final QdrantService qdrantService;
     private final PlaylistService playlistService;
     private final SongService songService;
+    private final AnalysisService analysisService;
 
     @Transactional
     public RadioCreateResponseDto createRadio(String userId, RadioCreateRequestDto request) {
@@ -67,16 +72,30 @@ public class RadioService {
         UserPreferenceDto preference = preferenceService.getPreference(userId);
         normalizeRequest(request, preference);
 
-        RecommendationResult recommendationResult = recommendSongs(
-                effectiveMoodForRecommendation(request),
-                normalizeEraForDb(request.getEra()),
-                request.getEra(),
-                request.getGenre(),
-                preference,
-                request.getExcludedKeywords(),
-                DEFAULT_RECOMMENDATION_LIMIT
-        );
-        List<SongDto> seedSongs = applyYoutubeUrlSeed(recommendationResult.songs(), request.getYoutubeUrl());
+        // YouTube URL이 있으면 임베딩 기반 Qdrant 검색 우선; 실패하면 DB 폴백
+        List<SongDto> qdrantSeeds = StringUtils.hasText(request.getYoutubeUrl())
+                ? findByYoutubeUrlEmbedding(request.getYoutubeUrl(), DEFAULT_RECOMMENDATION_LIMIT)
+                : List.of();
+
+        List<SongDto> seedSongs;
+        String recommendationSource;
+        if (!qdrantSeeds.isEmpty()) {
+            seedSongs = qdrantSeeds;
+            recommendationSource = "QDRANT_URL_EMBEDDING";
+        } else {
+            RecommendationResult recommendationResult = recommendSongs(
+                    effectiveMoodForRecommendation(request),
+                    normalizeEraForDb(request.getEra()),
+                    request.getEra(),
+                    request.getGenre(),
+                    preference,
+                    request.getExcludedKeywords(),
+                    DEFAULT_RECOMMENDATION_LIMIT
+            );
+            seedSongs = applyYoutubeUrlSeed(recommendationResult.songs(), request.getYoutubeUrl());
+            recommendationSource = recommendationResult.source();
+        }
+
         List<SongDto> expandedSongs = expandWithQdrant(seedSongs, EXPANDED_RECOMMENDATION_LIMIT);
         List<RecommendedSongResponseDto> recommendedSongs = toRecommendedSongs(expandedSongs, request);
 
@@ -94,7 +113,7 @@ public class RadioService {
                 request.getVideoType(),
                 request.getPreferredArtist(),
                 request.getExcludedKeywords(),
-                recommendationResult.source(),
+                recommendationSource,
                 djMent
         );
 
@@ -125,7 +144,7 @@ public class RadioService {
                 .preferredArtist(request.getPreferredArtist())
                 .excludedKeywords(request.getExcludedKeywords())
                 .djMent(djMent)
-                .recommendationSource(recommendationResult.source())
+                .recommendationSource(recommendationSource)
                 .tts(TtsFallbackResponseDto.from(tts))
                 .recommendedSongs(recommendedSongs)
                 .build();
@@ -270,6 +289,48 @@ public class RadioService {
         String era = StringUtils.hasText(request.getEra()) ? request.getEra() : "";
         String date = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy.MM.dd"));
         return String.format("%s %s 라디오 - %s", mood, era, date).replaceAll("\\s+", " ").trim();
+    }
+
+    /**
+     * YouTube URL을 분석해 9D 임베딩을 얻고 Qdrant 벡터 검색으로 유사곡을 반환한다.
+     * DB에 등록된 곡이면 UUID로 searchSimilar, 미등록이면 FastAPI 실시간 분석 후 searchByVector.
+     */
+    private List<SongDto> findByYoutubeUrlEmbedding(String youtubeUrl, int limit) {
+        String ytId = extractYoutubeId(youtubeUrl);
+
+        // DB에 이미 등록된 곡이고 Qdrant에 벡터가 있으면 UUID 기반 검색 (빠름)
+        if (StringUtils.hasText(ytId)) {
+            SongDto existing = songDao.selectSongByYoutubeId(ytId);
+            if (existing != null && StringUtils.hasText(existing.getId())) {
+                List<String> similarIds = qdrantService.searchSimilar(existing.getId(), limit - 1);
+                if (!similarIds.isEmpty()) {
+                    List<SongDto> result = new ArrayList<>();
+                    result.add(existing);
+                    for (String id : similarIds) {
+                        if (result.size() >= limit) break;
+                        if (id.equals(existing.getId())) continue;
+                        SongDto s = songService.getSongById(id);
+                        if (s != null) result.add(s);
+                    }
+                    return result;
+                }
+            }
+        }
+
+        // DB에 없거나 Qdrant 미등록 → FastAPI 실시간 분석 후 벡터 검색
+        try {
+            AnalyzeResponseDto analysis = analysisService.analyzeByUrl(youtubeUrl);
+            if (analysis == null || analysis.getEmbedding() == null || analysis.getEmbedding().isEmpty()) {
+                return List.of();
+            }
+            return qdrantService.searchByVector(analysis.getEmbedding(), limit).stream()
+                    .map(songService::getSongById)
+                    .filter(s -> s != null)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("YouTube URL 임베딩 검색 실패: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     private List<SongDto> expandWithQdrant(List<SongDto> seedSongs, int totalLimit) {

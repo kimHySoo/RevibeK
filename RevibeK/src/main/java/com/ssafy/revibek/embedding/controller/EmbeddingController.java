@@ -1,15 +1,24 @@
 package com.ssafy.revibek.embedding.controller;
 
+import com.ssafy.revibek.analysis.dto.AnalyzeByUrlRequestDto;
+import com.ssafy.revibek.analysis.dto.AnalyzeResponseDto;
+import com.ssafy.revibek.analysis.service.AnalysisService;
 import com.ssafy.revibek.embedding.service.EmbeddingQdrantSyncService;
 import com.ssafy.revibek.embedding.service.SongEmbeddingService;
+import com.ssafy.revibek.qdrant.QdrantService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/embeddings")
@@ -19,6 +28,8 @@ public class EmbeddingController {
 
     private final SongEmbeddingService songEmbeddingService;
     private final EmbeddingQdrantSyncService embeddingQdrantSyncService;
+    private final AnalysisService analysisService;
+    private final QdrantService qdrantService;
 
     // 임베딩 파일이 없는 곡에 대해 임베딩 생성 후 song_embeddings 폴더에 저장
     @PostMapping("/generate")
@@ -27,6 +38,28 @@ public class EmbeddingController {
         try {
             int count = songEmbeddingService.generateEmbeddings();
             return ResponseEntity.ok(count + "개 곡의 임베딩을 생성했습니다.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    // YouTube URL 분석 → 9D 임베딩 생성 → Qdrant 유사곡 검색
+    @PostMapping("/search-by-url")
+    @Operation(summary = "URL 기반 유사곡 검색", description = "YouTube URL을 오디오 분석해 9D 임베딩을 생성하고 Qdrant에서 유사곡 ID 목록을 반환합니다.")
+    public ResponseEntity<?> searchByUrl(@RequestBody AnalyzeByUrlRequestDto request) {
+        if (!StringUtils.hasText(request.getYoutubeUrl())) {
+            return ResponseEntity.badRequest().body("youtubeUrl은 필수입니다.");
+        }
+        try {
+            AnalyzeResponseDto analysis = analysisService.analyzeByUrl(request.getYoutubeUrl());
+            if (analysis == null || analysis.getEmbedding() == null || analysis.getEmbedding().isEmpty()) {
+                return ResponseEntity.ok(Map.of("embedding", List.of(), "similarSongIds", List.of()));
+            }
+            List<String> similarIds = qdrantService.searchByVector(analysis.getEmbedding(), 10);
+            return ResponseEntity.ok(Map.of(
+                "embedding", analysis.getEmbedding(),
+                "similarSongIds", similarIds
+            ));
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }

@@ -24,6 +24,26 @@ public class AnalysisServiceImpl implements AnalysisService {
     private final QdrantService qdrantService;
 
     @Override
+    public AnalyzeResponseDto analyzeByUrl(String youtubeUrl) {
+        String ytId = extractYoutubeId(youtubeUrl);
+        if (ytId == null) {
+            throw new IllegalArgumentException("유효하지 않은 YouTube URL: " + youtubeUrl);
+        }
+        AnalyzeRequestDto request = new AnalyzeRequestDto(ytId, youtubeUrl, "", 0);
+        return fastApiClient.analyze(request);
+    }
+
+    private String extractYoutubeId(String url) {
+        if (url == null || url.isBlank()) return null;
+        java.util.regex.Matcher m = java.util.regex.Pattern
+            .compile("(?:youtu\\.be/|youtube\\.com/(?:watch\\?v=|embed/|shorts/))([a-zA-Z0-9_-]{11})")
+            .matcher(url);
+        if (m.find()) return m.group(1);
+        if (url.matches("[a-zA-Z0-9_-]{11}")) return url;
+        return null;
+    }
+
+    @Override
     public AnalyzeResponseDto analyze(SongDto song) {
         if (song.getYoutubeId() != null && song.getYoutubeId().startsWith("dummy")) {
             AnalyzeResponseDto response = new AnalyzeResponseDto();

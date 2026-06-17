@@ -1,5 +1,6 @@
 package com.ssafy.revibek.analysis.controller;
 
+import com.ssafy.revibek.analysis.dto.AnalyzeByUrlRequestDto;
 import com.ssafy.revibek.analysis.dto.AnalyzeResponseDto;
 import com.ssafy.revibek.analysis.service.AnalysisJsonSyncService;
 import com.ssafy.revibek.analysis.service.AnalysisService;
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,9 +26,25 @@ public class AnalysisController {
     private final YoutubeMapper youtubeMapper;
     private final AnalysisJsonSyncService analysisJsonSyncService;
 
-    // 단건 분석
+    // YouTube URL로 단건 분석 (DB 저장 없이 embedding만 반환)
+    @PostMapping("/by-url")
+    @Operation(summary = "YouTube URL 단건 분석", description = "YouTube URL을 받아 FastAPI로 오디오 분석 후 9D 임베딩 반환. DB 저장 없음.")
+    public ResponseEntity<?> analyzeByUrl(@RequestBody AnalyzeByUrlRequestDto request) {
+        if (!StringUtils.hasText(request.getYoutubeUrl())) {
+            return ResponseEntity.badRequest().body("youtubeUrl은 필수입니다.");
+        }
+        try {
+            AnalyzeResponseDto response = analysisService.analyzeByUrl(request.getYoutubeUrl());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                                 .body(e.getMessage());
+        }
+    }
+
+    // DB에 등록된 곡 단건 분석 (songId 기반)
     @PostMapping("/{songId}")
-    @Operation(summary = "노래 단건 분석", description = "FastAPI에 분석 요청 후 결과 저장")
+    @Operation(summary = "노래 단건 분석 (songId)", description = "DB 등록 곡을 songId로 조회해 FastAPI에 분석 요청 후 결과 저장")
     public ResponseEntity<?> analyzeSong(@PathVariable String songId) {
         try {
             SongDto song = songService.getSongById(songId);
