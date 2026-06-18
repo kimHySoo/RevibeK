@@ -4,8 +4,10 @@ import AppShell from "@/components/common/AppShell.vue"
 import BaseButton from "@/components/common/BaseButton.vue"
 import NeonWaveform from "@/components/common/NeonWaveform.vue"
 import { mockSongs } from "@/mocks/songs"
+import { useAuthStore } from "@/stores/auth"
 
 const router = useRouter()
+const auth = useAuthStore()
 const previewSongs = mockSongs.slice(0, 3)
 
 const features = [
@@ -44,7 +46,12 @@ function start() {
         </p>
         <div class="hero-cta">
           <BaseButton size="lg" @click="start">내 사연으로 AI 커버 라디오 만들기</BaseButton>
-          <BaseButton size="lg" variant="outline" @click="router.push('/login')">
+          <BaseButton
+            v-if="!auth.isAuthenticated"
+            size="lg"
+            variant="outline"
+            @click="router.push('/login')"
+          >
             로그인
           </BaseButton>
         </div>
