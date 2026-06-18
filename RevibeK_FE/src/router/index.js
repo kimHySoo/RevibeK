@@ -18,6 +18,11 @@ const routes = [
     component: () => import("@/pages/SignupPage.vue"),
   },
   {
+    path: "/oauth/callback",
+    name: "oauth-callback",
+    component: () => import("@/pages/OAuthCallbackPage.vue"),
+  },
+  {
     path: "/main",
     name: "main",
     component: () => import("@/pages/MainPage.vue"),

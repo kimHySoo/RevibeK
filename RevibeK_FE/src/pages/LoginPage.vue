@@ -22,6 +22,9 @@ const hasPending = ref(false)
 
 onMounted(() => {
   hasPending.value = !!radio.loadPending()
+  if (route.query.error === "google-auth-failed") {
+    error.value = "Google 로그인에 실패했어요. 다시 시도해주세요."
+  }
 })
 
 const redirectTarget = computed(() => route.query.redirect || "")
