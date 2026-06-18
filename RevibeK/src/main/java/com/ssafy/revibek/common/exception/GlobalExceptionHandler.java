@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.HandlerMapping;
 
 import com.ssafy.revibek.common.dto.ErrorResponse;
 import com.ssafy.revibek.radio.exception.RadioNotFoundException;
@@ -17,11 +18,19 @@ import jakarta.servlet.http.HttpServletRequest;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    // 컨트롤러가 String을 반환하면 Spring이 응답 가능 타입을 text/plain으로 미리 고정해두는데,
+    // 예외 핸들러가 JSON(ErrorResponse)을 쓰려 하면 컨버터를 찾지 못해 HttpMessageNotWritableException이 발생한다.
+    // 핸들러 진입 시 이 제약을 지워 JSON으로 정상 응답할 수 있게 한다.
+    private void clearProducibleMediaTypes(HttpServletRequest request) {
+        request.removeAttribute(HandlerMapping.PRODUCIBLE_MEDIA_TYPES_ATTRIBUTE);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidation(
             MethodArgumentNotValidException exception,
             HttpServletRequest request
     ) {
+        clearProducibleMediaTypes(request);
         Map<String, String> fieldErrors = new LinkedHashMap<>();
         exception.getBindingResult().getFieldErrors().forEach(error ->
                 fieldErrors.put(error.getField(), error.getDefaultMessage())
@@ -42,6 +51,7 @@ public class GlobalExceptionHandler {
             IllegalArgumentException exception,
             HttpServletRequest request
     ) {
+        clearProducibleMediaTypes(request);
         ErrorResponse response = ErrorResponse.of(
                 HttpStatus.BAD_REQUEST.value(),
                 HttpStatus.BAD_REQUEST.getReasonPhrase(),
@@ -56,6 +66,7 @@ public class GlobalExceptionHandler {
             RadioNotFoundException exception,
             HttpServletRequest request
     ) {
+        clearProducibleMediaTypes(request);
         ErrorResponse response = ErrorResponse.of(
                 HttpStatus.NOT_FOUND.value(),
                 HttpStatus.NOT_FOUND.getReasonPhrase(),
@@ -70,6 +81,7 @@ public class GlobalExceptionHandler {
             EmailSendFailedException exception,
             HttpServletRequest request
     ) {
+        clearProducibleMediaTypes(request);
         ErrorResponse response = ErrorResponse.of(
                 HttpStatus.SERVICE_UNAVAILABLE.value(),
                 HttpStatus.SERVICE_UNAVAILABLE.getReasonPhrase(),
@@ -84,6 +96,7 @@ public class GlobalExceptionHandler {
             RuntimeException exception,
             HttpServletRequest request
     ) {
+        clearProducibleMediaTypes(request);
         ErrorResponse response = ErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
@@ -98,6 +111,7 @@ public class GlobalExceptionHandler {
             Exception exception,
             HttpServletRequest request
     ) {
+        clearProducibleMediaTypes(request);
         ErrorResponse response = ErrorResponse.of(
                 HttpStatus.INTERNAL_SERVER_ERROR.value(),
                 HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),

@@ -1,4 +1,3 @@
-``sql
 -- ============================================
 -- K-POP AI 라디오 서비스 — MySQL Schema + Mock Data
 -- 작성일: 2025-05-22
@@ -461,17 +460,3 @@ FLUSH PRIVILEGES;
 
 USE kpop_radio;
 SHOW TABLES;
-```
-
-## 12. migration_add_radio_session_playlist_id.sql 전체 코드
-
-실제 경로: `src/main/resources/sql/migration_add_radio_session_playlist_id.sql`
-
-```sql
-ALTER TABLE radio_sessions
-  ADD COLUMN playlist_id CHAR(36) NULL;
-
-ALTER TABLE radio_sessions
-  ADD CONSTRAINT fk_radio_sessions_playlist
-  FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE SET NULL;
-```
