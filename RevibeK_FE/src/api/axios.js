@@ -11,7 +11,7 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || "/api"
 const api = axios.create({
   baseURL,
   headers: { "Content-Type": "application/json" },
-  timeout: 20000,
+  timeout: 200000,
 })
 
 export function getAccessToken() {

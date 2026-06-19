@@ -80,6 +80,7 @@ services:
       TTS_ENABLED: ${TTS_ENABLED:-false}
       GCP_TTS_API_KEY: ${GCP_TTS_API_KEY}
       EMAIL_VERIFICATION_MODE: ${EMAIL_VERIFICATION_MODE:-mock}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_USERNAME: ${SMTP_USERNAME}
       SMTP_PASSWORD: ${SMTP_PASSWORD}
     volumes:
@@ -91,6 +92,7 @@ services:
       context: ./RevibeK_FE
       args:
         VITE_API_BASE_URL: /api
+        VITE_USE_MOCK: "false"
     restart: unless-stopped
     depends_on:
       - backend
