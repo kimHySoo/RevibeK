@@ -39,8 +39,16 @@ public class GmsClient {
     private int maxTokens;
 
     public Optional<String> generate(String prompt) {
-        if (!enabled || baseUrl == null || baseUrl.isBlank() || apiKey == null || apiKey.isBlank()) {
-            log.info("[GMS] API configuration missing. Using fallback DJ ment.");
+        if (!enabled) {
+            log.debug("[GMS] gms.enabled=false. Using fallback DJ ment.");
+            return Optional.empty();
+        }
+        if (baseUrl == null || baseUrl.isBlank()) {
+            log.warn("[GMS] gms.api.base-url is missing while gms.enabled=true. Using fallback DJ ment.");
+            return Optional.empty();
+        }
+        if (apiKey == null || apiKey.isBlank()) {
+            log.warn("[GMS] gms.api.key is missing while gms.enabled=true. Using fallback DJ ment.");
             return Optional.empty();
         }
 
@@ -66,9 +74,15 @@ public class GmsClient {
                     Map.class
             );
 
-            return extractText(response);
+            Optional<String> text = extractText(response);
+            if (text.isEmpty()) {
+                log.warn("[GMS] Claude response had no usable content. Using fallback DJ ment.");
+            } else {
+                log.debug("[GMS] Claude DJ ment generated successfully. length={}", text.get().length());
+            }
+            return text;
         } catch (Exception e) {
-            log.warn("[GMS] DJ ment generation failed. Using fallback. reason={}", e.getMessage());
+            log.warn("[GMS] Claude API call failed. Using fallback DJ ment. reason={}", e.getMessage());
             return Optional.empty();
         }
     }

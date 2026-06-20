@@ -31,6 +31,8 @@ public class TtsService implements TtsClient {
                     .mode(response.mode())
                     .text(text)
                     .audioUrl("data:%s;base64,%s".formatted(response.contentType(), response.audioContentBase64()))
+                    .voice(response.voiceName())
+                    .audioEncoding(response.audioEncoding())
                     .build();
             }
 
@@ -38,6 +40,8 @@ public class TtsService implements TtsClient {
                 .mode(StringUtils.hasText(response.mode()) ? response.mode() : "BROWSER_TTS")
                 .text(StringUtils.hasText(response.text()) ? response.text() : text)
                 .audioUrl(response.audioUrl())
+                .voice(response.voiceName())
+                .audioEncoding(response.audioEncoding())
                 .build();
         } catch (Exception e) {
             return browserFallback(text);

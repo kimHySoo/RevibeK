@@ -129,7 +129,16 @@ public class RadioService {
             radioMapper.updateRadioSessionPlaylistId(sessionId, userId, playlistId);
         }
 
+        // TTS 합성 실패는 항상 ttsService 내부에서 브라우저 fallback으로 흡수되므로
+        // 여기서 예외가 나더라도 라디오 생성 자체는 실패시키지 않는다.
         TtsResponseDto tts = ttsService.synthesize(djMent);
+        try {
+            radioMapper.updateRadioSessionTts(sessionId, userId, tts.getMode(), tts.getAudioUrl(), tts.getVoice(), tts.getAudioEncoding());
+        } catch (Exception e) {
+            // TTS 결과 저장에 실패해도 라디오 생성 응답은 정상적으로 내려준다(재조회 시에만 영향).
+            log.warn("라디오 세션 TTS 결과 저장 실패. sessionId={}, reason={}", sessionId, e.getMessage());
+        }
+
         return RadioCreateResponseDto.builder()
                 .radioSessionId(sessionId)
                 .playlistId(playlistId)
@@ -170,7 +179,35 @@ public class RadioService {
         }
         List<RadioResponseDto.RadioSongDto> songs = radioMapper.selectRecommendationBySessionId(id);
         session.setSongs(songs);
+        // DB에 저장된 TTS 결과로 복원한다. Google TTS를 재호출하면 비용이 중복 발생하므로 절대 다시 합성하지 않는다.
+        session.setTts(resolveStoredTts(session));
         return session;
+    }
+
+    /**
+     * 저장된 tts_mode/tts_audio_url 컬럼으로부터 응답용 TTS DTO를 재구성한다.
+     * - tts_mode가 없으면(과거 세션 또는 TTS 미생성) djMent가 있을 때만 브라우저 fallback을 만들어준다.
+     * - tts_mode가 GOOGLE_TTS인데 audioUrl이 비어 있으면(저장 실패 등) 안전하게 브라우저 fallback으로 내려준다.
+     */
+    private TtsFallbackResponseDto resolveStoredTts(RadioResponseDto session) {
+        TtsFallbackResponseDto stored = session.getTts();
+        if (stored == null || !StringUtils.hasText(stored.getMode())) {
+            if (!StringUtils.hasText(session.getDjMent())) {
+                return null;
+            }
+            return TtsFallbackResponseDto.builder()
+                    .mode("BROWSER_TTS")
+                    .text(session.getDjMent())
+                    .audioUrl(null)
+                    .build();
+        }
+
+        boolean isGoogleAudioAvailable = "GOOGLE_TTS".equals(stored.getMode()) && StringUtils.hasText(stored.getAudioUrl());
+        return TtsFallbackResponseDto.builder()
+                .mode(isGoogleAudioAvailable ? "GOOGLE_TTS" : "BROWSER_TTS")
+                .text(session.getDjMent())
+                .audioUrl(isGoogleAudioAvailable ? stored.getAudioUrl() : null)
+                .build();
     }
 
     @Transactional

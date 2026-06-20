@@ -30,7 +30,8 @@ const playingSongId = ref(null)
 const addingAll = ref(false)
 const batchMessage = ref("")
 
-const songs = computed(() => data.value?.songs || [])
+// 생성 응답은 recommendedSongs, 조회 응답은 songs 필드를 사용하므로 둘 다 안전하게 처리한다.
+const songs = computed(() => data.value?.songs ?? data.value?.recommendedSongs ?? [])
 
 function songKey(song) {
   return song?.songId || song?.id
@@ -42,7 +43,7 @@ function togglePlay(song) {
   const key = songKey(song)
   playingSongId.value = playingSongId.value === key ? null : key
 }
-const tts = computed(() => data.value?.tts || null)
+const tts = computed(() => data.value?.tts ?? null)
 const hasAudioTts = computed(() => !!tts.value?.audioUrl)
 const hasBrowserTts = computed(
   () =>
@@ -94,6 +95,32 @@ function stopDjMent() {
   speaking.value = false
 }
 
+function playBrowserSpeech(auto = false) {
+  if (!hasBrowserTts.value) {
+    speaking.value = false
+    if (!auto) ui.notify("이 브라우저는 음성 재생을 지원하지 않아요.", "info")
+    return
+  }
+
+  const text = tts.value?.text || data.value?.djMent || ""
+  const utter = new SpeechSynthesisUtterance(text)
+  utter.lang = "ko-KR"
+  utter.rate = 0.98
+  utter.onend = () => (speaking.value = false)
+  utter.onerror = () => (speaking.value = false)
+  speaking.value = true
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(utter)
+  if (auto) {
+    setTimeout(() => {
+      if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
+        speaking.value = false
+        autoplayBlocked.value = true
+      }
+    }, 400)
+  }
+}
+
 function playDjMent(auto = false) {
   if (speaking.value) return
   autoplayBlocked.value = false
@@ -101,37 +128,24 @@ function playDjMent(auto = false) {
   if (hasAudioTts.value) {
     if (!audioEl.value) audioEl.value = new Audio(tts.value.audioUrl)
     audioEl.value.onended = () => (speaking.value = false)
-    audioEl.value.onerror = () => (speaking.value = false)
+    // Google 오디오 재생/디코딩이 실패하면 브라우저 TTS로 자동 fallback한다.
+    audioEl.value.onerror = () => {
+      speaking.value = false
+      playBrowserSpeech(auto)
+    }
     speaking.value = true
     audioEl.value.play().catch(() => {
       speaking.value = false
-      if (auto) autoplayBlocked.value = true
+      if (auto) {
+        autoplayBlocked.value = true
+      } else {
+        playBrowserSpeech(false)
+      }
     })
     return
   }
 
-  if (hasBrowserTts.value) {
-    const text = tts.value?.text || data.value?.djMent || ""
-    const utter = new SpeechSynthesisUtterance(text)
-    utter.lang = "ko-KR"
-    utter.rate = 0.98
-    utter.onend = () => (speaking.value = false)
-    utter.onerror = () => (speaking.value = false)
-    speaking.value = true
-    window.speechSynthesis.cancel()
-    window.speechSynthesis.speak(utter)
-    if (auto) {
-      setTimeout(() => {
-        if (!window.speechSynthesis.speaking && !window.speechSynthesis.pending) {
-          speaking.value = false
-          autoplayBlocked.value = true
-        }
-      }, 400)
-    }
-    return
-  }
-
-  if (!auto) ui.notify("이 브라우저는 음성 재생을 지원하지 않아요.", "info")
+  playBrowserSpeech(auto)
 }
 
 watch(

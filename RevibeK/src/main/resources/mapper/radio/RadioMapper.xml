@@ -40,9 +40,30 @@
           AND user_id = #{userId}
     </update>
 
-    <!-- 세션 단건 조회 -->
+    <!-- TTS 합성 결과 업데이트 (라디오 생성 직후 1회, 조회 시에는 재호출하지 않음) -->
+    <update id="updateRadioSessionTts">
+        UPDATE radio_sessions
+        SET tts_mode           = #{ttsMode},
+            tts_audio_url      = #{ttsAudioUrl},
+            tts_voice          = #{ttsVoice},
+            tts_audio_encoding = #{ttsAudioEncoding}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <!-- 세션 단건 조회 (TTS 정보를 tts 객체로 매핑) -->
+    <resultMap id="radioSessionWithTtsMap" type="com.ssafy.revibek.radio.dto.RadioResponseDto" autoMapping="true">
+        <id property="id" column="id"/>
+        <!-- tts_mode가 NULL이면(과거 세션/TTS 미생성) tts 자체를 null로 두고, RadioService에서 djMent 기반 브라우저 fallback으로 보강한다 -->
+        <association property="tts" javaType="com.ssafy.revibek.radio.dto.TtsFallbackResponseDto"
+                      notNullColumn="tts_mode">
+            <result property="mode" column="tts_mode"/>
+            <result property="audioUrl" column="tts_audio_url"/>
+        </association>
+    </resultMap>
+
     <select id="selectRadioSessionByIdAndUserId"
-            resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
+            resultMap="radioSessionWithTtsMap">
         SELECT
             id,
             playlist_id,
@@ -59,6 +80,8 @@
             dj_ment,
             comfort_text,
             novel_excerpt,
+            tts_mode,
+            tts_audio_url,
             is_public,
             published_at,
             created_at

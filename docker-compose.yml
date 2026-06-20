@@ -17,6 +17,9 @@ services:
       - ./RevibeK/src/main/resources/sql/migration_add_review_follow_plan_challenge.sql:/docker-entrypoint-initdb.d/02-migration.sql:ro
       - ./RevibeK/src/main/resources/sql/migration_add_public_radio_feed.sql:/docker-entrypoint-initdb.d/03-migration.sql:ro
       - ./RevibeK/src/main/resources/sql/migration_replace_songs_data.sql:/docker-entrypoint-initdb.d/04-migration.sql:ro
+      # kpop_radio_schema.sql에 이미 tts_* 컬럼이 포함되어 있어 신규 초기화 시엔 중복 컬럼 에러가 날 수 있으므로,
+      # 기존 DB에 적용할 때만 이 파일을 단독으로(예: mysql < migration_add_radio_tts.sql) 실행한다.
+      # - ./RevibeK/src/main/resources/sql/migration_add_radio_tts.sql:/docker-entrypoint-initdb.d/05-migration.sql:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
@@ -62,6 +65,7 @@ services:
       QDRANT_ENABLED: ${QDRANT_ENABLED:-true}
       QDRANT_HOST: qdrant
       QDRANT_PORT: 6334
+      AUTO_SYNC_QDRANT_ON_STARTUP: ${AUTO_SYNC_QDRANT_ON_STARTUP:-false}
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
       JWT_SECRET: ${JWT_SECRET}
       GOOGLE_OAUTH_ENABLED: ${GOOGLE_OAUTH_ENABLED:-false}
@@ -69,6 +73,7 @@ services:
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI}
       OAUTH_FRONTEND_REDIRECT_URL: ${OAUTH_FRONTEND_REDIRECT_URL}
+      GMS_ENABLED: ${GMS_ENABLED:-false}
       GMS_KEY: ${GMS_KEY}
       GMS_OPENAI_ENABLED: ${GMS_OPENAI_ENABLED:-false}
       GMS_MODEL: ${GMS_MODEL}
@@ -79,6 +84,11 @@ services:
       CLIENT_SECRET: ${CLIENT_SECRET}
       TTS_ENABLED: ${TTS_ENABLED:-false}
       GCP_TTS_API_KEY: ${GCP_TTS_API_KEY}
+      TTS_LANGUAGE_CODE: ${TTS_LANGUAGE_CODE:-ko-KR}
+      TTS_VOICE: ${TTS_VOICE:-ko-KR-Chirp3-HD-Vindemiatrix}
+      TTS_AUDIO_ENCODING: ${TTS_AUDIO_ENCODING:-MP3}
+      TTS_SPEAKING_RATE: ${TTS_SPEAKING_RATE:-1.0}
+      TTS_PITCH: ${TTS_PITCH:-}
       SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
       EMAIL_VERIFICATION_MODE: ${EMAIL_VERIFICATION_MODE:-mock}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}

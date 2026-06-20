@@ -30,6 +30,9 @@ public class RadioResponseDto {
 	private String novelExcerpt;
 	private LocalDateTime createdAt;
 	private List<RadioSongDto> songs;
+	// MyBatis resultMap(association)이 tts_mode/tts_audio_url 컬럼을 채워준다.
+	// tts_mode가 NULL이면(과거 세션 또는 TTS 미생성) null로 남고, RadioService에서 djMent 기반 브라우저 fallback으로 보강한다.
+	private TtsFallbackResponseDto tts;
 	
 	@Data
 	@NoArgsConstructor
