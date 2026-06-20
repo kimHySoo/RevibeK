@@ -1,1 +1,0 @@
-.wave[data-v-d7490046]{align-items:center;gap:4px;height:56px;display:flex}.wave-bar[data-v-d7490046]{background:var(--grad-neon);transform-origin:50%;border-radius:999px;flex:1;min-width:3px;height:100%;animation:1s ease-in-out infinite wave}.wave.paused .wave-bar[data-v-d7490046]{animation-play-state:paused;transform:scaleY(.3)}
