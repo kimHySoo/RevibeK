@@ -77,7 +77,7 @@ public class EmbeddingQdrantSyncService {
                 vectorSize = vector.length;
 
                 points.add(PointStruct.newBuilder()
-                    .setId(id(UUID.fromString(songId)))
+                    .setId(id(UUID.nameUUIDFromBytes(songId.getBytes())))
                     .setVectors(vectors(vector))
                     .putAllPayload(Map.of("song_id", value(songId)))
                     .build());
