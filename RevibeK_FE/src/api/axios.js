@@ -102,6 +102,10 @@ api.interceptors.response.use(
   }
 )
 
-export const USE_MOCK = String(import.meta.env.VITE_USE_MOCK) !== "false"
+// VITE_USE_MOCK이 명시적으로 "true"일 때만 Mock을 사용한다(opt-in).
+// 이전에는 `!== "false"`로 비교해 환경변수가 비어 있거나 누락되면(예: `.env.development` 없이
+// 그냥 `npm run build`) 기본값이 Mock으로 켜지는 문제가 있었다 — 실제 배포에서 Java 백엔드를
+// 호출하지 않고 조용히 mocks/radio.js의 BROWSER_TTS 응답만 쓰게 될 위험이 있었다.
+export const USE_MOCK = String(import.meta.env.VITE_USE_MOCK) === "true"
 
 export default api

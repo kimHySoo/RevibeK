@@ -27,7 +27,7 @@ class GmsClientTest {
         gmsClient = new GmsClient(restTemplate);
         ReflectionTestUtils.setField(gmsClient, "baseUrl", "https://gms.ssafy.io/gmsapi/api.anthropic.com/v1/messages");
         ReflectionTestUtils.setField(gmsClient, "apiKey", "dummy-key");
-        ReflectionTestUtils.setField(gmsClient, "model", "claude-3-7-sonnet-latest");
+        ReflectionTestUtils.setField(gmsClient, "model", "claude-sonnet-4-5-20250929");
         ReflectionTestUtils.setField(gmsClient, "anthropicVersion", "2023-06-01");
         ReflectionTestUtils.setField(gmsClient, "maxTokens", 300);
     }

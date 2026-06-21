@@ -27,8 +27,14 @@ __pycache__/
 .venv/
 venv/
 
+#docs
+Revibek/docs/
+Revibek/scripts/
+
+
 # Downloads
 RevibeK_AI/downloads/
+RevibeK_AI/backup/
 RevibeK_AI/song_embeddings/
 /downloads/
 

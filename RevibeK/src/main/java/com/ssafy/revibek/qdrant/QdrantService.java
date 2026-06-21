@@ -1,6 +1,9 @@
 package com.ssafy.revibek.qdrant;
 
+import com.ssafy.revibek.mood.GenerationCode;
+import com.ssafy.revibek.mood.GenreNormalizer;
 import com.ssafy.revibek.song.dto.SongDto;
+import com.ssafy.revibek.song.mapper.SongDao;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.grpc.Collections.Distance;
 import io.qdrant.client.grpc.Collections.VectorParams;
@@ -11,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +24,7 @@ import java.util.stream.Stream;
 
 import static io.qdrant.client.PointIdFactory.id;
 import static io.qdrant.client.QueryFactory.nearest;
+import static io.qdrant.client.ValueFactory.list;
 import static io.qdrant.client.ValueFactory.value;
 import static io.qdrant.client.VectorsFactory.vectors;
 import static io.qdrant.client.WithPayloadSelectorFactory.enable;
@@ -30,6 +35,7 @@ import static io.qdrant.client.WithPayloadSelectorFactory.enable;
 public class QdrantService {
 
     private final QdrantClient qdrantClient;
+    private final SongDao songDao;
 
     @Value("${qdrant.enabled:false}")
     private boolean enabled;
@@ -204,9 +210,25 @@ public class QdrantService {
                 .map(p -> p.getId().getUuid())
                 .toList();
         } catch (Exception e) {
-            log.warn("Qdrant 검색 실패. songId={}, reason={}", songId, e.getMessage());
+            if (isPointNotFound(e)) {
+                // 시드 곡이 아직 Qdrant에 색인되지 않은, 예상 가능한 상태(서버 장애가 아님).
+                // POST /api/qdrant/embed로 재색인하면 해소된다.
+                log.debug("Qdrant point 없음(미색인 곡일 수 있음). songId={}", songId);
+            } else {
+                log.warn("Qdrant 검색 실패(연결/서버 오류 가능). songId={}, reason={}", songId, e.getMessage());
+            }
             return List.of();
         }
+    }
+
+    private boolean isPointNotFound(Throwable e) {
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            String message = t.getMessage();
+            if (message != null && message.contains("NOT_FOUND")) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Value 타입 충돌 방지: 완전한 클래스명 사용
@@ -217,6 +239,38 @@ public class QdrantService {
         if (song.getEra()       != null) payload.put("era",        value(song.getEra()));
         if (song.getType()      != null) payload.put("type",       value(song.getType()));
         if (song.getYoutubeId() != null) payload.put("youtube_id", value(song.getYoutubeId()));
+
+        // 표준 코드 필드(과도기). song_moods/generation/genre가 아직 채워지지 않은 곡은
+        // 매칭되는 항목이 없어 필드 자체를 생략한다(기존 payload 구조를 깨지 않음).
+        List<String> moodCodes = safeFindMoodCodes(song.getId());
+        if (!moodCodes.isEmpty()) {
+            payload.put("mood_codes", list(moodCodes.stream().map(io.qdrant.client.ValueFactory::value).toList()));
+        }
+
+        GenerationCode generationCode = toGenerationCode(song.getGeneration());
+        if (generationCode != null) {
+            payload.put("generation", value(generationCode.name()));
+        }
+
+        GenreNormalizer.normalize(song.getGenre())
+                .ifPresent(genreCode -> payload.put("genre_code", value(genreCode.name())));
+
         return payload;
+    }
+
+    private List<String> safeFindMoodCodes(String songId) {
+        if (!StringUtils.hasText(songId)) return List.of();
+        try {
+            return songDao.selectMoodCodesBySongId(songId);
+        } catch (Exception e) {
+            log.warn("song_moods 조회 실패. songId={}, reason={}", songId, e.getMessage());
+            return List.of();
+        }
+    }
+
+    private GenerationCode toGenerationCode(String generation) {
+        if ("2세대".equals(generation)) return GenerationCode.SECOND;
+        if ("3세대".equals(generation)) return GenerationCode.THIRD;
+        return null;
     }
 }

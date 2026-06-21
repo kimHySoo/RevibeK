@@ -29,7 +29,9 @@ public class GmsClient {
     @Value("${gms.api.key:}")
     private String apiKey;
 
-    @Value("${gms.api.model:claude-sonnet-4-6}")
+    // SSAFY GMS 프록시는 일부 모델명을 허용하지 않는다(예: claude-3-7-sonnet-latest -> 400).
+    // 실제 호출 테스트로 확인된 사용 가능한 모델만 기본값으로 사용한다.
+    @Value("${gms.api.model:claude-sonnet-4-5-20250929}")
     private String model;
 
     @Value("${gms.api.anthropic-version:2023-06-01}")

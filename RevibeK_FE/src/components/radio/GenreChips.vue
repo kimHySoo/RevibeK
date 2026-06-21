@@ -1,9 +1,11 @@
 <script setup>
+import { GENRE_OPTIONS } from "@/constants/radioOptions"
+
 defineProps({
   modelValue: { type: String, default: "" },
 })
 defineEmits(["update:modelValue"])
-const genres = ["댄스", "발라드", "R&B", "힙합", "아이돌", "OST"]
+const genres = GENRE_OPTIONS.map((option) => option.label)
 </script>
 
 <template>

@@ -1,10 +1,12 @@
 <script setup>
+import { MOOD_OPTIONS } from "@/constants/radioOptions"
+
 defineProps({
   modelValue: { type: String, default: "" },
 })
 defineEmits(["update:modelValue"])
 
-const moods = ["지침", "설렘", "회상", "자신감", "위로", "외로움", "신남"]
+const moods = MOOD_OPTIONS.map((option) => option.label)
 </script>
 
 <template>

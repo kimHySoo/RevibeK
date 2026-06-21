@@ -1,9 +1,11 @@
 <script setup>
+import { GENERATION_OPTIONS } from "@/constants/radioOptions"
+
 defineProps({
   modelValue: { type: String, default: "" },
 })
 defineEmits(["update:modelValue"])
-const eras = ["2세대", "3세대", "전체"]
+const eras = GENERATION_OPTIONS.map((option) => option.label)
 </script>
 
 <template>

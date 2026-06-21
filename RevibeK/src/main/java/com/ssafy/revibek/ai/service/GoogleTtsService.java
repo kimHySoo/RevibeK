@@ -16,7 +16,9 @@ import com.ssafy.revibek.ai.dto.external.GoogleTtsSynthesizeResponseDto;
 import com.ssafy.revibek.ai.dto.external.GoogleTtsVoicesResponseDto;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class GoogleTtsService {
@@ -63,7 +65,14 @@ public class GoogleTtsService {
             pitch = null;
         }
 
-        if (!enabled || !StringUtils.hasText(apiKey)) {
+        log.debug("[TTS] enabled={} apiKeyPresent={}", enabled, StringUtils.hasText(apiKey));
+
+        if (!enabled) {
+            log.info("[TTS] fallback reason=disabled");
+            return TtsSynthesizeResponseDto.browserTts(request.text(), languageCode, voiceName);
+        }
+        if (!StringUtils.hasText(apiKey)) {
+            log.warn("[TTS] fallback reason=api-key-missing");
             return TtsSynthesizeResponseDto.browserTts(request.text(), languageCode, voiceName);
         }
 
@@ -72,10 +81,19 @@ public class GoogleTtsService {
             new GoogleTtsSynthesizeRequestDto.Voice(languageCode, StringUtils.hasText(voiceName) ? voiceName : null),
             new GoogleTtsSynthesizeRequestDto.AudioConfig(audioEncoding, speakingRate, pitch)
         );
+        log.debug("[TTS] request started voice={} encoding={} languageCode={}", voiceName, audioEncoding, languageCode);
         GoogleTtsSynthesizeResponseDto responseDto = googleTtsDao.synthesize(requestDto);
-        if (responseDto == null || !StringUtils.hasText(responseDto.getAudioContent())) {
+        log.debug("[TTS] response received");
+
+        boolean audioContentPresent = responseDto != null && StringUtils.hasText(responseDto.getAudioContent());
+        log.debug("[TTS] audioContentPresent={}", audioContentPresent);
+        if (!audioContentPresent) {
+            // empty-audio: 호출은 성공했지만 응답에 오디오가 없는 경우. TtsService에서 분류해 다시 로그를 남긴다.
             throw new RuntimeException("Google TTS audioContent가 비어 있습니다.");
         }
+
+        log.info("[TTS] mode=GOOGLE_TTS audioLength={} voice={} encoding={}",
+            responseDto.getAudioContent().length(), voiceName, audioEncoding);
 
         return new TtsSynthesizeResponseDto(
             responseDto.getAudioContent(),

@@ -7,6 +7,10 @@ import org.springframework.util.StringUtils;
 import com.ssafy.revibek.analysis.dto.AnalyzeResponseDto;
 import com.ssafy.revibek.analysis.service.AnalysisService;
 import com.ssafy.revibek.follow.mapper.FollowMapper;
+import com.ssafy.revibek.mood.GenerationCode;
+import com.ssafy.revibek.mood.GenerationNormalizer;
+import com.ssafy.revibek.mood.MoodCode;
+import com.ssafy.revibek.mood.MoodNormalizer;
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
 import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
 import com.ssafy.revibek.playlist.service.PlaylistService;
@@ -403,14 +407,40 @@ public class RadioService {
             String mood, String era, String generation, String genre,
             UserPreferenceDto preference, String excludedKeywords, int limit
     ) {
-        List<SongDto> songs = safeFindByMoodEraGenre(mood, era, generation, genre, excludedKeywords, limit);
+        // moodCode 우선 단계: song_moods 정규화 테이블 기반. 결과가 없을 때만
+        // 바로 아래의 기존(레거시) songs.mood 문자열 기반 단계로 폴백한다.
+        String moodCode = MoodNormalizer.normalize(mood).map(MoodCode::name).orElse(null);
+        // generation이 "전체"(ALL)면 세대 조건을 적용하지 않는다(곡에 ALL을 저장하지 않으므로
+        // 세대 일치 쿼리는 의미가 없다). 레거시 단계는 기존 동작을 그대로 보존한다.
+        boolean allGenerations = GenerationNormalizer.normalize(generation)
+                .map(code -> code == GenerationCode.ALL)
+                .orElse(false);
+
+        List<SongDto> songs;
+        if (!allGenerations) {
+            songs = safeFindByMoodCodeEraGenre(moodCode, era, generation, genre, excludedKeywords, limit);
+            if (!songs.isEmpty()) return new RecommendationResult("SONG_MOODS_MOOD_ERA_GENRE", songs);
+        }
+
+        songs = safeFindByMoodEraGenre(mood, era, generation, genre, excludedKeywords, limit);
         if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_ERA_GENRE", songs);
+
+        if (!allGenerations) {
+            songs = safeFindByMoodCodeEra(moodCode, era, generation, excludedKeywords, limit);
+            if (!songs.isEmpty()) return new RecommendationResult("SONG_MOODS_MOOD_ERA", songs);
+        }
 
         songs = safeFindByMoodEra(mood, era, generation, excludedKeywords, limit);
         if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_ERA_FALLBACK", songs);
 
+        songs = safeFindByMoodCodeGenre(moodCode, genre, excludedKeywords, limit);
+        if (!songs.isEmpty()) return new RecommendationResult("SONG_MOODS_MOOD_GENRE", songs);
+
         songs = safeFindByMoodGenre(mood, genre, excludedKeywords, limit);
         if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_GENRE_FALLBACK", songs);
+
+        songs = safeFindByMoodCode(moodCode, excludedKeywords, limit);
+        if (!songs.isEmpty()) return new RecommendationResult("SONG_MOODS_MOOD", songs);
 
         songs = safeFindByMood(mood, excludedKeywords, limit);
         if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_FALLBACK", songs);
@@ -431,6 +461,49 @@ public class RadioService {
         if (!songs.isEmpty()) return new RecommendationResult("DB_SCORE_FALLBACK", songs);
 
         return new RecommendationResult("DB_EMPTY", List.of());
+    }
+
+    private List<SongDto> safeFindByMoodCodeEraGenre(String moodCode, String era, String generation, String genre,
+                                                       String excludedKeywords, int limit) {
+        if (moodCode == null || !StringUtils.hasText(era) || !StringUtils.hasText(generation)
+                || !StringUtils.hasText(genre)) {
+            return List.of();
+        }
+        try {
+            return songDao.findRecommendedSongsByMoodCodeEraGenre(moodCode, era, generation, genre, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByMoodCodeEra(String moodCode, String era, String generation,
+                                                 String excludedKeywords, int limit) {
+        if (moodCode == null || !StringUtils.hasText(era) || !StringUtils.hasText(generation)) {
+            return List.of();
+        }
+        try {
+            return songDao.findRecommendedSongsByMoodCodeEra(moodCode, era, generation, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByMoodCodeGenre(String moodCode, String genre, String excludedKeywords, int limit) {
+        if (moodCode == null || !StringUtils.hasText(genre)) return List.of();
+        try {
+            return songDao.findRecommendedSongsByMoodCodeGenre(moodCode, genre, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
+    }
+
+    private List<SongDto> safeFindByMoodCode(String moodCode, String excludedKeywords, int limit) {
+        if (moodCode == null) return List.of();
+        try {
+            return songDao.findRecommendedSongsByMoodCode(moodCode, excludedKeywords, limit);
+        } catch (Exception e) {
+            return List.of();
+        }
     }
 
     private List<SongDto> safeFindByMoodEraGenre(String mood, String era, String generation, String genre,
