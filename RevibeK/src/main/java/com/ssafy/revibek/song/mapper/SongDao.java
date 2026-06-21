@@ -16,6 +16,24 @@ public interface SongDao {
     List<SongDto> selectSongByTitle(String title);
     List<SongDto> selectSongsByGenre(String genre);
     List<SongDto> selectRecommendSongs();
+    List<SongDto> findRecommendedSongsByMoodCodeEraGenre(@Param("moodCode") String moodCode,
+                                                          @Param("era") String era,
+                                                          @Param("generation") String generation,
+                                                          @Param("genre") String genre,
+                                                          @Param("excludedKeywords") String excludedKeywords,
+                                                          @Param("limit") int limit);
+    List<SongDto> findRecommendedSongsByMoodCodeEra(@Param("moodCode") String moodCode,
+                                                      @Param("era") String era,
+                                                      @Param("generation") String generation,
+                                                      @Param("excludedKeywords") String excludedKeywords,
+                                                      @Param("limit") int limit);
+    List<SongDto> findRecommendedSongsByMoodCodeGenre(@Param("moodCode") String moodCode,
+                                                        @Param("genre") String genre,
+                                                        @Param("excludedKeywords") String excludedKeywords,
+                                                        @Param("limit") int limit);
+    List<SongDto> findRecommendedSongsByMoodCode(@Param("moodCode") String moodCode,
+                                                  @Param("excludedKeywords") String excludedKeywords,
+                                                  @Param("limit") int limit);
     List<SongDto> findRecommendedSongsByMoodEraGenre(@Param("mood") String mood,
                                                       @Param("era") String era,
                                                       @Param("generation") String generation,
@@ -54,6 +72,9 @@ public interface SongDao {
                                                     @Param("excludedKeywords") String excludedKeywords,
                                                     @Param("limit") int limit);
     List<SongDto> findTopScoreSongs(@Param("limit") int limit);
+    List<String> selectMoodCodesBySongId(@Param("songId") String songId);
+    int deleteSongMoodsNotIn(@Param("songId") String songId, @Param("moodCodes") List<String> moodCodes);
+    int insertSongMoodsIgnore(@Param("songId") String songId, @Param("moodCodes") List<String> moodCodes);
     int updateSong(SongDto song);
     int deleteSong(String id);
 }
