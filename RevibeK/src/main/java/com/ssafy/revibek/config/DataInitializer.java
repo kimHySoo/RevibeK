@@ -30,12 +30,16 @@ public class DataInitializer implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (userMapper.selectUserAuthByEmail(seedEmail) != null) {
-            log.info("[DataInitializer] 개발용 계정 이미 존재: {}", seedEmail);
-            return;
+        try {
+            if (userMapper.selectUserAuthByEmail(seedEmail) != null) {
+                log.info("[DataInitializer] 개발용 계정 이미 존재: {}", seedEmail);
+                return;
+            }
+            String hash = passwordEncoder.encode(seedPassword);
+            userMapper.insertLocalUser(seedNickname, seedEmail, hash);
+            log.info("[DataInitializer] 개발용 계정 생성 완료 — email: {}, password: {}", seedEmail, seedPassword);
+        } catch (Exception e) {
+            log.warn("[DataInitializer] DB 연결 실패로 개발용 계정 생성을 건너뜁니다. 원인: {}", e.getMessage());
         }
-        String hash = passwordEncoder.encode(seedPassword);
-        userMapper.insertLocalUser(seedNickname, seedEmail, hash);
-        log.info("[DataInitializer] 개발용 계정 생성 완료 — email: {}, password: {}", seedEmail, seedPassword);
     }
 }
