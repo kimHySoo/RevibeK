@@ -204,7 +204,6 @@ class RadioServiceTest {
                 .era("00s")
                 .youtubeUrl("https://youtu.be/abc12345678")
                 .youtubeId("abc12345678")
-                .score(1.0f)
                 .build();
     }
 

@@ -11,11 +11,13 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import com.ssafy.revibek.auth.ApiAuthenticationEntryPoint;
 import com.ssafy.revibek.auth.JwtAuthenticationFilter;
 import com.ssafy.revibek.auth.OAuth2FailureHandler;
 import com.ssafy.revibek.auth.OAuth2SuccessHandler;
@@ -29,6 +31,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
+    private final ApiAuthenticationEntryPoint apiAuthenticationEntryPoint;
 
     @Value("${app.oauth.google.enabled:false}")
     private boolean googleOAuthEnabled;
@@ -49,6 +52,13 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             // OAuth2 authorization request 저장을 위해 최소한의 세션 생성을 허용한다.
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+            // /api/** 미인증 요청은 oauth2Login()의 기본 동작(구글로 302 리다이렉트) 대신 401 JSON을
+            // 받도록 한다. 그대로 두면 axios가 accounts.google.com까지 리다이렉트를 따라가다 CORS 에러로
+            // 막혀서 "로그인 필요"라는 진짜 원인이 가려진다 (docs/error/error04.md 참고).
+            .exceptionHandling(ex -> ex.defaultAuthenticationEntryPointFor(
+                apiAuthenticationEntryPoint,
+                PathPatternRequestMatcher.withDefaults().matcher("/api/**")
+            ))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
                     "/api/auth/**",

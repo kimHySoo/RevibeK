@@ -18,9 +18,6 @@
         <result property="thumbnailUrl"    column="thumbnail_url"/>
         <result property="viewCount"       column="view_count"/>
         <result property="likeCount"       column="like_count"/>
-        <result property="trendScore"      column="trend_score"/>
-        <result property="score"           column="score"/>
-        <result property="scoreUpdatedAt"  column="score_updated_at"/>
         <result property="releasedAt"      column="released_at"/>
         <result property="createdAt"       column="created_at"/>
         <result property="durationSeconds"  column="duration_seconds"/>
@@ -30,9 +27,6 @@
         <result property="loudness"         column="loudness"/>
         <result property="musicalKey"       column="musical_key"/>
         <result property="musicalScale"     column="musical_scale"/>
-        <result property="beatsCount"       column="beats_count"/>
-        <result property="beatsConfidence"  column="beats_confidence"/>
-        <result property="keyStrength"      column="key_strength"/>
         <result property="spectralCentroid" column="spectral_centroid"/>
         <result property="zeroCrossingRate" column="zero_crossing_rate"/>
         <result property="isAnalyzed"       column="is_analyzed"/>
@@ -49,7 +43,6 @@
         <result property="youtubeUrl" column="youtube_url"/>
         <result property="youtubeId"  column="youtube_id"/>
         <result property="thumbnailUrl" column="thumbnail_url"/>
-        <result property="score"      column="score"/>
     </resultMap>
 
     <insert id="insertSong" parameterType="com.ssafy.revibek.song.dto.SongDto">
@@ -57,23 +50,19 @@
             id, title, artist, genre, era, generation, mood, type,
             youtube_url, youtube_id, thumbnail_url,
             view_count, like_count,
-            trend_score, score,
             released_at, created_at,
             duration_seconds, bpm, energy,
             danceability, loudness,
             musical_key, musical_scale,
-            beats_count, beats_confidence, key_strength,
             spectral_centroid, zero_crossing_rate, is_analyzed
         ) VALUES (
             UUID(), #{title}, #{artist}, #{genre}, #{era}, #{generation}, #{mood}, #{type},
             #{youtubeUrl}, #{youtubeId}, #{thumbnailUrl},
             #{viewCount}, #{likeCount},
-            #{trendScore}, #{score},
             #{releasedAt}, NOW(),
             #{durationSeconds}, #{bpm}, #{energy},
             #{danceability}, #{loudness},
             #{musicalKey}, #{musicalScale},
-            #{beatsCount}, #{beatsConfidence}, #{keyStrength},
             #{spectralCentroid}, #{zeroCrossingRate}, #{isAnalyzed}
         )
     </insert>
@@ -93,15 +82,15 @@
     <select id="selectSongByTitle" parameterType="String" resultMap="SongResultMap">
         SELECT * FROM songs
         WHERE title LIKE CONCAT('%', #{title}, '%')
-        ORDER BY score DESC
+        ORDER BY created_at DESC
     </select>
 
     <select id="selectSongsByGenre" parameterType="String" resultMap="SongResultMap">
-        SELECT * FROM songs WHERE genre = #{genre} ORDER BY score DESC
+        SELECT * FROM songs WHERE genre = #{genre} ORDER BY created_at DESC
     </select>
 
     <select id="selectRecommendSongs" resultMap="SongResultMap">
-        SELECT * FROM songs ORDER BY score DESC LIMIT 10
+        SELECT * FROM songs ORDER BY created_at DESC LIMIT 10
     </select>
 
     <sql id="RadioRecommendationColumns">
@@ -113,8 +102,7 @@
         generation,
         youtube_url,
         youtube_id,
-        thumbnail_url,
-        score
+        thumbnail_url
     </sql>
 
     <sql id="ExcludedKeywordCondition">
@@ -139,7 +127,7 @@
           <if test="excludedKeywords != null and excludedKeywords != ''">
               AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
           </if>
-        ORDER BY s.score DESC, s.created_at DESC
+        ORDER BY s.created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -153,7 +141,7 @@
           <if test="excludedKeywords != null and excludedKeywords != ''">
               AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
           </if>
-        ORDER BY s.score DESC, s.created_at DESC
+        ORDER BY s.created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -167,7 +155,7 @@
           <if test="excludedKeywords != null and excludedKeywords != ''">
               AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
           </if>
-        ORDER BY s.score DESC, s.created_at DESC
+        ORDER BY s.created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -180,7 +168,7 @@
           <if test="excludedKeywords != null and excludedKeywords != ''">
               AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
           </if>
-        ORDER BY s.score DESC, s.created_at DESC
+        ORDER BY s.created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -193,7 +181,7 @@
           AND (era = #{era} OR generation = #{generation})
           AND genre = #{genre}
           <include refid="ExcludedKeywordCondition"/>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -204,7 +192,7 @@
         WHERE mood = #{mood}
           AND (era = #{era} OR generation = #{generation})
           <include refid="ExcludedKeywordCondition"/>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -215,7 +203,7 @@
         WHERE mood = #{mood}
           AND genre = #{genre}
           <include refid="ExcludedKeywordCondition"/>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -225,7 +213,7 @@
         FROM songs
         WHERE mood = #{mood}
           <include refid="ExcludedKeywordCondition"/>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -236,7 +224,7 @@
         WHERE (era = #{era} OR generation = #{generation})
           AND genre = #{genre}
           <include refid="ExcludedKeywordCondition"/>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -246,7 +234,7 @@
         FROM songs
         WHERE (era = #{era} OR generation = #{generation})
           <include refid="ExcludedKeywordCondition"/>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -256,7 +244,7 @@
         FROM songs
         WHERE genre = #{genre}
           <include refid="ExcludedKeywordCondition"/>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -299,7 +287,7 @@
             </trim>
             <include refid="ExcludedKeywordCondition"/>
         </where>
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -307,7 +295,7 @@
         SELECT
             <include refid="RadioRecommendationColumns"/>
         FROM songs
-        ORDER BY score DESC, created_at DESC
+        ORDER BY created_at DESC
         LIMIT #{limit}
     </select>
 
@@ -355,9 +343,6 @@
             thumbnail_url    = #{thumbnailUrl},
             view_count       = #{viewCount},
             like_count       = #{likeCount},
-            trend_score      = #{trendScore},
-            score            = #{score},
-            score_updated_at = NOW(),
             released_at      = #{releasedAt},
             duration_seconds = #{durationSeconds},
             bpm              = #{bpm},
@@ -366,9 +351,6 @@
             loudness         = #{loudness},
             musical_key      = #{musicalKey},
             musical_scale    = #{musicalScale},
-            beats_count      = #{beatsCount},
-            beats_confidence = #{beatsConfidence},
-            key_strength     = #{keyStrength},
             spectral_centroid = #{spectralCentroid},
             zero_crossing_rate = #{zeroCrossingRate},
             is_analyzed      = #{isAnalyzed}

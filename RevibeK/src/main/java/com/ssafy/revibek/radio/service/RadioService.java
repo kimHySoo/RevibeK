@@ -617,7 +617,6 @@ public class RadioService {
                     .genre(song.getGenre())
                     .youtubeUrl(resolveYoutubeUrl(song))
                     .youtubeId(song.getYoutubeId())
-                    .score(song.getScore())
                     .reason(buildReason(song, request))
                     .build());
         }

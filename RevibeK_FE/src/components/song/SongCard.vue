@@ -17,6 +17,9 @@ defineEmits(["save", "play"])
 
 const youtubeId = computed(() => getSongYoutubeId(props.song))
 const hasVideo = computed(() => !!youtubeId.value)
+// /api/songs(SongDto)는 id로, 라디오 추천 응답(RecommendedSongResponseDto)은 songId로 내려와
+// 두 형태를 모두 받아야 한다.
+const resolvedSongId = computed(() => props.song.songId || props.song.id)
 
 const showReviews = ref(false)
 </script>
@@ -83,7 +86,7 @@ const showReviews = ref(false)
             리뷰
           </button>
           <span class="spacer" />
-          <LikeButton :song-id="song.songId" />
+          <LikeButton :song-id="resolvedSongId" />
         </div>
       </div>
     </div>
@@ -94,7 +97,7 @@ const showReviews = ref(false)
     </div>
 
     <!-- 카드 내부에서 펼쳐지는 리뷰 영역 -->
-    <ReviewSection v-if="reviewable && showReviews" :song-id="song.songId" />
+    <ReviewSection v-if="reviewable && showReviews" :song-id="resolvedSongId" />
   </article>
 </template>
 

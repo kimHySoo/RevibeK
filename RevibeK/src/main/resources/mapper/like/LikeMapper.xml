@@ -26,9 +26,6 @@
         <result property="thumbnailUrl" column="thumbnail_url"/>
         <result property="viewCount" column="view_count"/>
         <result property="likeCount" column="like_count"/>
-        <result property="trendScore" column="trend_score"/>
-        <result property="score" column="score"/>
-        <result property="scoreUpdatedAt" column="score_updated_at"/>
         <result property="releasedAt" column="released_at"/>
         <result property="createdAt" column="created_at"/>
         <result property="updatedAt" column="updated_at"/>
@@ -89,9 +86,6 @@
             s.thumbnail_url,
             s.view_count,
             s.like_count,
-            s.trend_score,
-            s.score,
-            s.score_updated_at,
             s.released_at,
             s.created_at,
             s.updated_at
