@@ -7,6 +7,7 @@ import com.ssafy.revibek.song.dto.SongDto;
 public interface SongService {
     int registerSong(SongDto song);
     List<SongDto> getAllSongs();
+    List<SongDto> getSongsWithEmbeddingMeta(String embeddingType);
     SongDto getSongById(String id);
     SongDto getSongByYoutubeId(String youtubeId);
     List<SongDto> getSongByTitle(String title);

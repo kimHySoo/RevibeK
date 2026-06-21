@@ -51,7 +51,7 @@ public class EmbeddingController {
             return ResponseEntity.badRequest().body("youtubeUrl은 필수입니다.");
         }
         try {
-            AnalyzeResponseDto analysis = analysisService.analyzeByUrl(request.getYoutubeUrl());
+            AnalyzeResponseDto analysis = analysisService.analyzeByUrlAndPersist(request.getYoutubeUrl());
             if (analysis == null || analysis.getEmbedding() == null || analysis.getEmbedding().isEmpty()) {
                 return ResponseEntity.ok(Map.of("embedding", List.of(), "similarSongIds", List.of()));
             }

@@ -11,6 +11,7 @@ import com.ssafy.revibek.song.dto.SongDto;
 public interface SongDao {
     int insertSong(SongDto song);
     List<SongDto> selectAllSongs();
+    List<SongDto> selectSongsWithEmbeddingMeta(@Param("embeddingType") String embeddingType);
     SongDto selectSongById(String id);
     SongDto selectSongByYoutubeId(String youtubeId);
     List<SongDto> selectSongByTitle(String title);

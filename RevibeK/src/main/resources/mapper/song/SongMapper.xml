@@ -71,6 +71,13 @@
         SELECT * FROM songs ORDER BY created_at DESC
     </select>
 
+    <!-- embedding_songs에 해당 타입의 메타가 등록된 곡만 조회 (예: Qdrant AUDIO_9D 색인 대상 좁히기) -->
+    <select id="selectSongsWithEmbeddingMeta" resultMap="SongResultMap">
+        SELECT s.* FROM songs s
+        INNER JOIN embedding_songs e ON e.song_id = s.id AND e.embedding_type = #{embeddingType}
+        ORDER BY s.created_at DESC
+    </select>
+
     <select id="selectSongById" parameterType="String" resultMap="SongResultMap">
         SELECT * FROM songs WHERE id = #{id}
     </select>
