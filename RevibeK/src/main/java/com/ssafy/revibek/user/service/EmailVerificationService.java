@@ -83,7 +83,6 @@ public class EmailVerificationService {
             }
             throw new RuntimeException("메일 서비스를 사용할 수 없습니다. 관리자에게 문의하세요.");
         }
-    }
 
         try {
             SimpleMailMessage message = new SimpleMailMessage();
