@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.analysis.mapper.AnalyzedSongDao">
+
+    <insert id="upsert" parameterType="com.ssafy.revibek.analysis.dto.AnalyzedSongDto">
+        INSERT INTO analyzed_songs (
+            id, youtube_video_raw_id, youtube_video_id, song_id, status, message,
+            duration_seconds, bpm, energy, danceability, loudness,
+            musical_key, musical_scale, spectral_centroid, zero_crossing_rate,
+            analyzed_at
+        ) VALUES (
+            UUID(), #{youtubeVideoRawId}, #{youtubeVideoId}, #{songId}, #{status}, #{message},
+            #{durationSeconds}, #{bpm}, #{energy}, #{danceability}, #{loudness},
+            #{musicalKey}, #{musicalScale}, #{spectralCentroid}, #{zeroCrossingRate},
+            #{analyzedAt}
+        )
+        ON DUPLICATE KEY UPDATE
+            song_id            = VALUES(song_id),
+            status             = VALUES(status),
+            message            = VALUES(message),
+            duration_seconds   = VALUES(duration_seconds),
+            bpm                = VALUES(bpm),
+            energy             = VALUES(energy),
+            danceability       = VALUES(danceability),
+            loudness           = VALUES(loudness),
+            musical_key        = VALUES(musical_key),
+            musical_scale      = VALUES(musical_scale),
+            spectral_centroid  = VALUES(spectral_centroid),
+            zero_crossing_rate = VALUES(zero_crossing_rate),
+            analyzed_at        = VALUES(analyzed_at)
+    </insert>
+
+</mapper>

@@ -13,6 +13,13 @@ public interface AnalysisService {
      */
     AnalyzeResponseDto analyzeByUrl(String youtubeUrl);
 
+    /**
+     * analyzeByUrl과 동일하게 분석하되, 분석 대상 곡이 songs 테이블에 이미 등록되어 있으면
+     * analyzed_songs / embedding_songs(AUDIO_9D)에도 결과를 저장한다.
+     * 곡이 DB에 없거나 분석 상태가 COMPLETED가 아니면 저장 없이 분석 결과만 반환한다.
+     */
+    AnalyzeResponseDto analyzeByUrlAndPersist(String youtubeUrl);
+
     void analyzeAndSave(SongDto song);
     void analyzeAndSave(YoutubeVideoDto video);
     void upsertSongFromAnalysis(String youtubeId, String youtubeUrl, String title, AnalyzeResponseDto response);

@@ -18,6 +18,5 @@ public class RecommendedSongResponseDto {
     private String genre;
     private String youtubeUrl;
     private String youtubeId;
-    private float score;
     private String reason;
 }

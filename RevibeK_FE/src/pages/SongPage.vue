@@ -112,7 +112,7 @@ onMounted(load)
       <div v-else-if="filtered.length" class="song-grid">
         <SongCard
           v-for="s in filtered"
-          :key="s.songId"
+          :key="songKey(s)"
           :song="s"
           :playing="isPlaying(s)"
           reviewable

@@ -21,10 +21,10 @@ public class QdrantController {
     private final SongService songService;
 
     @PostMapping("/embed")
-    @Operation(summary = "전체 곡 벡터 저장", description = "songs 테이블 전체를 Qdrant에 upsert")
+    @Operation(summary = "곡 벡터 저장", description = "embedding_songs(AUDIO_9D)에 등록된 곡만 Qdrant에 upsert")
     public ResponseEntity<String> embedAll() {
         qdrantService.createCollectionIfNotExists();
-        List<SongDto> songs = songService.getAllSongs();
+        List<SongDto> songs = songService.getSongsWithEmbeddingMeta("AUDIO_9D");
         qdrantService.upsertSongs(songs);
         return ResponseEntity.ok(songs.size() + "곡 Qdrant 저장 완료");
     }

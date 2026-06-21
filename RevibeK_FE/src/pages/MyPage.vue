@@ -204,7 +204,7 @@ onMounted(load)
           <div v-if="likedSongs.length" class="track-items">
             <TrackRow
               v-for="(s, i) in likedSongs"
-              :key="s.songId"
+              :key="songKey(s)"
               :song="s"
               :index="i"
               :playing="isPlaying(s)"

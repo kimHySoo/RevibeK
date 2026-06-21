@@ -1,8 +1,12 @@
 package com.ssafy.revibek.analysis.service;
 
 import com.ssafy.revibek.analysis.client.FastApiClient;
+import com.ssafy.revibek.analysis.dto.AnalyzedSongDto;
 import com.ssafy.revibek.analysis.dto.AnalyzeRequestDto;
 import com.ssafy.revibek.analysis.dto.AnalyzeResponseDto;
+import com.ssafy.revibek.analysis.mapper.AnalyzedSongDao;
+import com.ssafy.revibek.embedding.dto.EmbeddingSongDto;
+import com.ssafy.revibek.embedding.mapper.EmbeddingSongDao;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.service.SongService;
 import com.ssafy.revibek.youtube.dto.YoutubeVideoDto;
@@ -10,8 +14,13 @@ import com.ssafy.revibek.youtube.dto.YoutubeVideoStatsDto;
 import com.ssafy.revibek.youtube.mapper.YoutubeMapper;
 import com.ssafy.revibek.youtube.service.YoutubeService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AnalysisServiceImpl implements AnalysisService {
@@ -20,6 +29,13 @@ public class AnalysisServiceImpl implements AnalysisService {
     private final SongService songService;
     private final YoutubeMapper youtubeMapper;
     private final YoutubeService youtubeService;
+    private final AnalyzedSongDao analyzedSongDao;
+    private final EmbeddingSongDao embeddingSongDao;
+
+    @Value("${qdrant.collection:revibek_songs}")
+    private String audioCollection;
+
+    private static final String AUDIO_EMBEDDING_TYPE = "AUDIO_9D";
 
     @Override
     public AnalyzeResponseDto analyzeByUrl(String youtubeUrl) {
@@ -29,6 +45,71 @@ public class AnalysisServiceImpl implements AnalysisService {
         }
         AnalyzeRequestDto request = new AnalyzeRequestDto(ytId, youtubeUrl, "", 0);
         return fastApiClient.analyze(request);
+    }
+
+    @Override
+    public AnalyzeResponseDto analyzeByUrlAndPersist(String youtubeUrl) {
+        AnalyzeResponseDto response = analyzeByUrl(youtubeUrl);
+        if (response == null || !"COMPLETED".equals(response.getStatus())) {
+            // MOCK/FAILED/SKIPPED 결과는 저장하지 않는다 (가짜·미완 분석값이 DB에 남는 것을 방지).
+            return response;
+        }
+
+        String ytId = extractYoutubeId(youtubeUrl);
+        SongDto song = songService.getSongByYoutubeId(ytId);
+        if (song == null) {
+            log.info("[Analysis] songs에 없는 URL이라 analyzed_songs/embedding_songs 저장을 건너뜀: {}", ytId);
+            return response;
+        }
+
+        persistAnalyzedSong(song, response);
+        if (response.getEmbedding() != null && !response.getEmbedding().isEmpty()) {
+            persistEmbeddingSong(song, response.getEmbedding().size());
+        }
+        return response;
+    }
+
+    private void persistAnalyzedSong(SongDto song, AnalyzeResponseDto response) {
+        var rawVideo = youtubeMapper.findVideoByVideoId(song.getYoutubeId());
+        if (rawVideo == null) {
+            // youtube_videos_raw.channel_id가 NOT NULL FK라 채널 수집 이력이 없는 곡은
+            // analyzed_songs를 저장할 수 없다 (docs/answer/answer13.md 2.4-1 참고).
+            log.info("[Analysis] youtube_videos_raw 이력이 없어 analyzed_songs 저장을 건너뜀: songId={}", song.getId());
+            return;
+        }
+
+        analyzedSongDao.upsert(AnalyzedSongDto.builder()
+            .youtubeVideoRawId(rawVideo.getId())
+            .youtubeVideoId(song.getYoutubeId())
+            .songId(song.getId())
+            .status(response.getStatus())
+            .message(response.getMessage())
+            .durationSeconds((double) response.getDurationSeconds())
+            .bpm(response.getBpm())
+            .energy(response.getEnergy())
+            .danceability(response.getDanceability())
+            .loudness(response.getLoudness())
+            .musicalKey(response.getMusicalKey())
+            .musicalScale(response.getMusicalScale())
+            .spectralCentroid(response.getSpectralCentroid())
+            .zeroCrossingRate(response.getZeroCrossingRate())
+            .analyzedAt(LocalDateTime.now())
+            .build());
+    }
+
+    private void persistEmbeddingSong(SongDto song, int dimension) {
+        embeddingSongDao.upsert(EmbeddingSongDto.builder()
+            .songId(song.getId())
+            .embeddingType(AUDIO_EMBEDDING_TYPE)
+            .modelName("SongVectorUtil/FastAPI embedding_service")
+            .dimension(dimension)
+            .sourceText(null)
+            .vectorFilePath(null)
+            .qdrantCollection(audioCollection)
+            .qdrantPointId(song.getId())
+            .isIndexed(false)
+            .indexedAt(null)
+            .build());
     }
 
     private String extractYoutubeId(String url) {

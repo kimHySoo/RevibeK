@@ -1,6 +1,8 @@
 package com.ssafy.revibek.embedding.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.revibek.embedding.dto.EmbeddingSongDto;
+import com.ssafy.revibek.embedding.mapper.EmbeddingSongDao;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.service.SongService;
 import lombok.RequiredArgsConstructor;
@@ -41,7 +43,13 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
     @Value("${gms.openai.api-key:}")
     private String apiKey;
 
+    @Value("${qdrant.text-collection:revibek_song_text_embeddings}")
+    private String textCollection;
+
+    private static final String EMBEDDING_TYPE = "TEXT_OPENAI";
+
     private final SongService songService;
+    private final EmbeddingSongDao embeddingSongDao;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -58,9 +66,17 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
         }
 
         int generatedCount = 0;
+        int backfilledCount = 0;
         for (SongDto song : songService.getAllSongs()) {
+            if (embeddingSongDao.selectBySongIdAndType(song.getId(), EMBEDDING_TYPE) != null) {
+                continue;
+            }
+
             File file = new File(dir, song.getId() + ".json");
             if (file.exists()) {
+                if (backfillFromExistingFile(song, file)) {
+                    backfilledCount++;
+                }
                 continue;
             }
 
@@ -77,14 +93,52 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
                 data.put("text", text);
                 data.put("vector", vector);
                 objectMapper.writeValue(file, data);
+                saveEmbeddingSong(song.getId(), text, vector.length, file);
                 generatedCount++;
             } catch (IOException e) {
                 log.warn("[Embedding] 파일 저장 실패: {} - {}", song.getId(), e.getMessage());
             }
         }
 
-        log.info("[Embedding] 생성 완료: {}개", generatedCount);
-        return generatedCount;
+        log.info("[Embedding] 생성 완료: 신규 {}개, DB 백필 {}개", generatedCount, backfilledCount);
+        return generatedCount + backfilledCount;
+    }
+
+    /**
+     * 과거에 만들어진 song_embeddings/{songId}.json은 있지만 embedding_songs 행이 없는 곡을
+     * GMS API 재호출 없이 기존 파일 내용만으로 DB에 채운다.
+     */
+    private boolean backfillFromExistingFile(SongDto song, File file) {
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> data = objectMapper.readValue(file, Map.class);
+            @SuppressWarnings("unchecked")
+            List<Number> vector = (List<Number>) data.get("vector");
+            String text = (String) data.get("text");
+            if (vector == null || vector.isEmpty()) {
+                return false;
+            }
+            saveEmbeddingSong(song.getId(), text, vector.size(), file);
+            return true;
+        } catch (IOException e) {
+            log.warn("[Embedding] 기존 파일 읽기 실패(백필 스킵): {} - {}", song.getId(), e.getMessage());
+            return false;
+        }
+    }
+
+    private void saveEmbeddingSong(String songId, String sourceText, int dimension, File file) {
+        embeddingSongDao.upsert(EmbeddingSongDto.builder()
+            .songId(songId)
+            .embeddingType(EMBEDDING_TYPE)
+            .modelName(embeddingModel)
+            .dimension(dimension)
+            .sourceText(sourceText)
+            .vectorFilePath(file.getAbsolutePath())
+            .qdrantCollection(textCollection)
+            .qdrantPointId(songId)
+            .isIndexed(false)
+            .indexedAt(null)
+            .build());
     }
 
     private String buildText(SongDto song) {

@@ -31,6 +31,11 @@ public class SongServiceImpl implements SongService {
     }
 
     @Override
+    public List<SongDto> getSongsWithEmbeddingMeta(String embeddingType) {
+        return songDao.selectSongsWithEmbeddingMeta(embeddingType);
+    }
+
+    @Override
     public SongDto getSongById(String id) {
         return songDao.selectSongById(id);
     }
