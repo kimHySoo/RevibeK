@@ -35,7 +35,9 @@ public class ClaudeGmsService {
     @Value("${gms.api.anthropic-version:2023-06-01}")
     private String anthropicVersion;
 
-    @Value("${gms.api.model:claude-3-7-sonnet-latest}")
+    // SSAFY GMS 프록시는 일부 모델명을 허용하지 않는다(예: claude-3-7-sonnet-latest -> 400).
+    // 실제 호출 테스트로 확인된 사용 가능한 모델만 기본값으로 사용한다.
+    @Value("${gms.api.model:claude-sonnet-4-5-20250929}")
     private String defaultModel;
 
     @Value("${gms.api.max-tokens:300}")

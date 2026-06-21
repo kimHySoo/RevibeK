@@ -14,4 +14,6 @@ public class TtsResponseDto {
     private String mode;
     private String text;
     private String audioUrl;
+    private String voice;
+    private String audioEncoding;
 }

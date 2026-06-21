@@ -14,6 +14,8 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+import com.ssafy.revibek.common.exception.EmailSendFailedException;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -81,6 +83,7 @@ public class EmailVerificationService {
             }
             throw new RuntimeException("메일 서비스를 사용할 수 없습니다. 관리자에게 문의하세요.");
         }
+    }
 
         try {
             SimpleMailMessage message = new SimpleMailMessage();

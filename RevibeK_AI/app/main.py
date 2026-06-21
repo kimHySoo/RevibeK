@@ -8,7 +8,7 @@ app = FastAPI(title="RevibeK AI Server")
 app.include_router(analyze.router)
 
 #.\.venv\Scripts\Activate.ps1
-# uvicorn app.main:app --reload
+# python -m uvicorn app.main:app --reload
 @app.get("/")
 async def welcome() -> dict:
     return {

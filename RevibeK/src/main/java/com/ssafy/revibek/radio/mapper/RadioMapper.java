@@ -36,6 +36,12 @@ public interface RadioMapper {
 	void updateRadioSessionPlaylistId(@Param("id") String id,
 	                                  @Param("userId") String userId,
 	                                  @Param("playlistId") String playlistId);
+	void updateRadioSessionTts(@Param("id") String id,
+	                           @Param("userId") String userId,
+	                           @Param("ttsMode") String ttsMode,
+	                           @Param("ttsAudioUrl") String ttsAudioUrl,
+	                           @Param("ttsVoice") String ttsVoice,
+	                           @Param("ttsAudioEncoding") String ttsAudioEncoding);
 	RadioResponseDto selectRadioSessionByIdAndUserId(@Param("id") String id,
 	                                                 @Param("userId") String userId);
 	List<RadioResponseDto> selectRadioSessionByUserId(@Param("userId") String userId);

@@ -1,0 +1,2562 @@
+-- ============================================================
+-- RevibeK Migration: 2·3세대 곡 데이터 정제 결과를 기존 운영 DB에 반영
+-- 작성일: 2026-06-21
+-- 대상 DB: kpop_radio (MySQL 8) — 기존 운영/개발 DB. 신규 DB 생성은
+--          kpop_radio_schema_latest.sql을 사용할 것 (이 파일과 혼용 금지).
+--
+-- 절대 사용하지 않은 구문: DELETE FROM songs / TRUNCATE TABLE songs.
+-- songs는 PK(id) 충돌 시 INSERT ... ON DUPLICATE KEY UPDATE로만 갱신하므로
+-- 기존 songs.id, 그리고 그 id를 참조하는 user_songs/song_likes/
+-- radio_recommendations/score_logs/playlist_songs/reviews/song_moods/
+-- Qdrant point(=songs.id)는 끊어지지 않는다.
+--
+-- 입력: docs/data/songs_2nd_3rd_clean.csv (scripts/clean_songs_csv.py 출력,
+--       207행, conflicts.csv 6행은 의도적으로 제외 — 사람 검토 후 별도 처리)
+-- 생성: scripts/generate_song_upsert_sql.py
+--
+-- 적용 전 필수 확인:
+--   1) 아래 "0. 적용 전 점검" 쿼리를 먼저 실행해 현재 DB의 songs 행 수,
+--      song_moods 행 수, youtube_id 중복 여부를 확인할 것.
+--   2) docs/data/songs_2nd_3rd_conflicts.csv 6건(Perhaps Love 세대충돌,
+--      Hot Summer/MOVIE 필드충돌)은 이 마이그레이션에 포함되지 않으므로
+--      별도로 사람이 검토 후 수동 UPDATE할 것.
+--   3) 실제 실행은 사용자가 직접 수행한다 (이 파일은 생성만 되었고 미실행).
+-- ============================================================
+
+USE kpop_radio;
+
+-- ------------------------------------------------------------
+-- 0. 적용 전 점검 (참고용 SELECT, 결과를 보고 진행 여부 판단)
+-- ------------------------------------------------------------
+-- SELECT COUNT(*) AS songs_count FROM songs;
+-- SELECT COUNT(*) AS song_moods_count FROM song_moods;
+-- SELECT youtube_id, COUNT(*) c FROM songs GROUP BY youtube_id HAVING c > 1;
+
+START TRANSACTION;
+
+-- ------------------------------------------------------------
+-- 1. songs UPSERT + song_moods 동기화 (곡 범위 한정, 자동 생성됨)
+-- ------------------------------------------------------------
+-- 자동 생성: scripts/generate_song_upsert_sql.py (입력: docs/data/songs_2nd_3rd_clean.csv)
+-- 대상 행 수: 207 (conflicts.csv 행은 제외됨, 별도 검토 필요)
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('518328c5-6616-11f1-9914-80ca5293d4d8', 'Psycho', '레드벨벳 (Red Velvet)', 'R&B', '10s', '3세대', '환상, 외로움', 'song', 'https://www.youtube.com/watch?v=0acoOSQlezM', '0acoOSQlezM', 'https://i.ytimg.com/vi/0acoOSQlezM/hqdefault.jpg', 73144, 793, 0, 0, '2026-06-13 13:36:57', '2019-12-23', 203, 147.6562, 0.0925, 0.5084, -10.3374, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '518328c5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('518328c5-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('518f5198-6616-11f1-9914-80ca5293d4d8', 'View', 'SHINee', 'R&B', '10s', '3세대', '설렘, 환상', 'song', 'https://www.youtube.com/watch?v=0Mxw_AO7uTA', '0Mxw_AO7uTA', 'https://i.ytimg.com/vi/0Mxw_AO7uTA/hqdefault.jpg', 64841, 1408, 0, 0, '2026-06-13 13:36:57', '2015-05-18', 192, 126.048, 0.0764, 0.4138, -11.1719, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '518f5198-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('518f5198-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5190ba68-6616-11f1-9914-80ca5293d4d8', 'Why Don''t You Know', '청하', '댄스', '10s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=0nAIe9tUge8', '0nAIe9tUge8', 'https://i.ytimg.com/vi/0nAIe9tUge8/hqdefault.jpg', 29238, 343, 0, 0, '2026-06-13 13:36:57', '2017-06-07', 209, 126.048, 0.0881, 0.4245, -10.5511, 'D', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5190ba68-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5190ba68-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5190ba68-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51924ea8-6616-11f1-9914-80ca5293d4d8', '너를 만나', '폴킴', '발라드', '10s', '3세대', '설렘, 위로', 'song', 'https://www.youtube.com/watch?v=0NjQkcbuciI', '0NjQkcbuciI', 'https://i.ytimg.com/vi/0NjQkcbuciI/hqdefault.jpg', 6687, 161, 0, 0, '2026-06-13 13:36:57', '2018-10-29', 316, 139.6748, 0.078, 0.458, -11.0816, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51924ea8-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'COMFORT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51924ea8-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('51924ea8-6616-11f1-9914-80ca5293d4d8', 'COMFORT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51990861-6616-11f1-9914-80ca5293d4d8', 'Something', 'Girl''s Day', '댄스', '10s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=0v_94bt152c', '0v_94bt152c', 'https://i.ytimg.com/vi/0v_94bt152c/hqdefault.jpg', 23922, 447, 0, 0, '2026-06-13 13:36:57', '2014-01-03', 205, 107.666, 0.017, 0.3604, -17.7045, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51990861-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51990861-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('51990861-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('519a3d06-6616-11f1-9914-80ca5293d4d8', 'BAD BOY', 'BIGBANG', '힙합', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=0XQ2D3zwoFk', '0XQ2D3zwoFk', 'https://i.ytimg.com/vi/0XQ2D3zwoFk/hqdefault.jpg', 101497, 900, 0, 0, '2026-06-13 13:36:57', '2012-02-29', 228, 75.9995, 0.0613, 0.3744, -12.1247, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '519a3d06-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('519a3d06-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51a6685f-6616-11f1-9914-80ca5293d4d8', '사랑스러워', '김종국', '발라드', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=1e31eNzPr68', '1e31eNzPr68', 'https://i.ytimg.com/vi/1e31eNzPr68/hqdefault.jpg', 30225, 505, 0, 0, '2026-06-13 13:36:48', '2005-07-01', 249, 93.9631, 0.0804, 0.3698, -10.9498, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51a6685f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51a6685f-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('51a6685f-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51ac30b7-6616-11f1-9914-80ca5293d4d8', 'I AM THE BEST', '2NE1', '댄스', '10s', '2세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=1kPAEZvD3lk', '1kPAEZvD3lk', 'https://i.ytimg.com/vi/1kPAEZvD3lk/hqdefault.jpg', 54077, 1358, 0, 0, '2026-06-13 13:36:48', '2011-07-28', 198, 129.1992, 0.0164, 0.4908, -17.8432, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51ac30b7-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51ac30b7-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('51ac30b7-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51b34b1d-6616-11f1-9914-80ca5293d4d8', '아모르파티', '김연자', '댄스', '10s', NULL, '신남, 자신감', 'song', 'https://www.youtube.com/watch?v=26LrKV1qswQ', '26LrKV1qswQ', 'https://i.ytimg.com/vi/26LrKV1qswQ/hqdefault.jpg', 380, 8, 0, 0, '2026-06-13 13:36:49', '2013-05-23', 204, 132.512, 0.0608, 0.4507, -12.164, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51b34b1d-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51b34b1d-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('51b34b1d-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51b78ce5-6616-11f1-9914-80ca5293d4d8', '누난 너무 예뻐', 'SHINee', 'R&B', '00s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=2G2mTdc49Mk', '2G2mTdc49Mk', 'https://i.ytimg.com/vi/2G2mTdc49Mk/hqdefault.jpg', 156830, 2366, 0, 0, '2026-06-13 13:36:49', '2008-05-25', 184, 99.384, 0.0559, 0.4474, -12.5249, 'F', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51b78ce5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51b78ce5-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51b8af63-6616-11f1-9914-80ca5293d4d8', 'Red Light', 'f(x)', '댄스', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=2GJIDXIx_T0', '2GJIDXIx_T0', 'https://i.ytimg.com/vi/2GJIDXIx_T0/hqdefault.jpg', 1294, 50, 0, 0, '2026-06-13 13:36:49', '2014-07-03', 194, 129.1992, 0.0189, 0.4197, -17.2341, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51b8af63-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51b8af63-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51ba363b-6616-11f1-9914-80ca5293d4d8', 'Mr.Mr.', '소녀시대', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=2gslsT_xAK8', '2gslsT_xAK8', 'https://i.ytimg.com/vi/2gslsT_xAK8/hqdefault.jpg', 4131, 98, 0, 0, '2026-06-13 13:36:49', '2014-02-24', 227, 112.3471, 0.0158, 0.3777, -18.0018, 'B', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51ba363b-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51ba363b-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51c1c75b-6616-11f1-9914-80ca5293d4d8', 'In The Club', '2NE1', '댄스', '00s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=3Hf76BWJTGA', '3Hf76BWJTGA', 'https://i.ytimg.com/vi/3Hf76BWJTGA/hqdefault.jpg', 4325, 118, 0, 0, '2026-06-13 13:36:49', '2009-07-08', 212, 161.499, 0.0275, 0.5379, -15.5988, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51c1c75b-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51c1c75b-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51cccc00-6616-11f1-9914-80ca5293d4d8', 'I Love You Boy', 'Suzy', 'OST', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=3xHLjwL77XM', '3xHLjwL77XM', 'https://i.ytimg.com/vi/3xHLjwL77XM/hqdefault.jpg', 427, 7, 0, 0, '2026-06-13 13:36:50', '2017-10-01', 278, 147.6562, 0.0451, 0.4806, -13.4626, 'G#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51cccc00-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51cccc00-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51d4be56-6616-11f1-9914-80ca5293d4d8', 'DAY BY DAY', 'T-ARA', '댄스', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=4flRne7rfA0', '4flRne7rfA0', 'https://i.ytimg.com/vi/4flRne7rfA0/hqdefault.jpg', 106234, 1407, 0, 0, '2026-06-13 13:36:50', '2012-07-03', 213, 120.1853, 0.0297, 0.4282, -15.2722, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51d4be56-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51d4be56-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51d6ca20-6616-11f1-9914-80ca5293d4d8', 'Why So Lonely', 'Wonder Girls', '댄스', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=4HKFPN7wwrM', '4HKFPN7wwrM', 'https://i.ytimg.com/vi/4HKFPN7wwrM/hqdefault.jpg', 3169, 108, 0, 0, '2026-06-13 13:36:50', '2016-07-05', 204, 151.9991, 0.019, 0.5363, -17.2041, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51d6ca20-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51d6ca20-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51dde900-6616-11f1-9914-80ca5293d4d8', '몸매', '박재범', '힙합', '10s', '3세대', '신남, 자신감', 'song', 'https://www.youtube.com/watch?v=4RBnV_qBqEM', '4RBnV_qBqEM', 'https://i.ytimg.com/vi/4RBnV_qBqEM/hqdefault.jpg', 4853, 70, 0, 0, '2026-06-13 13:36:51', '2015-05-22', 136, 93.9631, 0.0607, 0.3969, -12.1687, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51dde900-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51dde900-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('51dde900-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51ea4760-6616-11f1-9914-80ca5293d4d8', 'I My Me Mine', '포미닛', '댄스', '10s', '2세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=5DIF6-wE98Y', '5DIF6-wE98Y', 'https://i.ytimg.com/vi/5DIF6-wE98Y/hqdefault.jpg', 4547, 152, 0, 0, '2026-06-13 13:36:52', '2010-07-02', 186, 129.1992, 0.0174, 0.4172, -17.6013, 'B', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51ea4760-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51ea4760-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('51ea4760-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51ed2877-6616-11f1-9914-80ca5293d4d8', 'Love Shot', 'EXO', 'R&B', '10s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=5FqhBO67RHE', '5FqhBO67RHE', 'https://i.ytimg.com/vi/5FqhBO67RHE/hqdefault.jpg', 27968, 608, 0, 0, '2026-06-13 13:36:52', '2018-12-13', 202, 147.6562, 0.0199, 0.5066, -17.0081, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51ed2877-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51ed2877-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('51ed2877-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51ef26fa-6616-11f1-9914-80ca5293d4d8', '내꺼하자 (Be Mine)', 'INFINITE (인피니트)', '댄스', '10s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=5VmPxUKOpu0', '5VmPxUKOpu0', 'https://i.ytimg.com/vi/5VmPxUKOpu0/hqdefault.jpg', 4870, 102, 0, 0, '2026-06-13 13:36:52', '2011-07-21', 200, 129.1992, 0.0186, 0.4448, -17.3156, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51ef26fa-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51ef26fa-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('51ef26fa-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51f2e10a-6616-11f1-9914-80ca5293d4d8', 'MARIA (AVE MARIA)', 'Kim ah-joong / Park Jinjoo', 'OST', '00s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=6E-0CHx9a1I', '6E-0CHx9a1I', 'https://i.ytimg.com/vi/6E-0CHx9a1I/hqdefault.jpg', 3138, 68, 0, 0, '2026-06-13 13:36:52', '2006-12-11', 194, 151.9991, 0.1112, 0.4895, -9.537, 'A', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51f2e10a-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51f2e10a-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51f6c121-6616-11f1-9914-80ca5293d4d8', '롤러코스터', '청하(Chung Ha)', '댄스', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=6KOGQw7pP6Y', '6KOGQw7pP6Y', 'https://i.ytimg.com/vi/6KOGQw7pP6Y/hqdefault.jpg', 24258, 253, 0, 0, '2026-06-13 13:36:52', '2018-01-17', 216, 129.1992, 0.0774, 0.4249, -11.1124, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51f6c121-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51f6c121-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('51fc1988-6616-11f1-9914-80ca5293d4d8', 'ROLY POLY', 'T-ARA', '댄스', '10s', '2세대', '신남', 'song', 'https://www.youtube.com/watch?v=6rHBXHY9D8E', '6rHBXHY9D8E', 'https://i.ytimg.com/vi/6rHBXHY9D8E/hqdefault.jpg', 24335, 398, 0, 0, '2026-06-13 13:36:53', '2011-07-28', 197, 129.1992, 0.0147, 0.4697, -18.3332, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '51fc1988-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('51fc1988-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5200a43f-6616-11f1-9914-80ca5293d4d8', 'Gee', '소녀시대', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=6YFQChAr5z4', '6YFQChAr5z4', 'https://i.ytimg.com/vi/6YFQChAr5z4/hqdefault.jpg', 14617, 275, 0, 0, '2026-06-13 13:36:53', '2009-01-05', 194, 107.666, 0.0232, 0.3953, -16.3452, 'F', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5200a43f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5200a43f-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5200a43f-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5202f3e6-6616-11f1-9914-80ca5293d4d8', '사랑은 아프려고 하는 거죠', 'MC THE MAX', '발라드', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=72eQ-L6oE20', '72eQ-L6oE20', 'https://i.ytimg.com/vi/72eQ-L6oE20/hqdefault.jpg', 7085, 84, 0, 0, '2026-06-13 13:36:53', '2005-11-24', 260, 69.8374, 0.0581, 0.3019, -12.3595, 'A', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5202f3e6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5202f3e6-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('522419b8-6616-11f1-9914-80ca5293d4d8', 'UGLY', '2NE1', '댄스', '10s', '2세대', '위로, 외로움', 'song', 'https://www.youtube.com/watch?v=8Lvb16zM99o', '8Lvb16zM99o', 'https://i.ytimg.com/vi/8Lvb16zM99o/hqdefault.jpg', 57526, 608, 0, 0, '2026-06-13 13:36:55', '2011-07-28', 236, 129.1992, 0.0803, 0.4542, -10.955, 'G#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '522419b8-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('COMFORT', 'LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('522419b8-6616-11f1-9914-80ca5293d4d8', 'COMFORT'), ('522419b8-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('522611f5-6616-11f1-9914-80ca5293d4d8', 'Oasis', 'Crush', '댄스', '10s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=8MbarLje7i0', '8MbarLje7i0', 'https://i.ytimg.com/vi/8MbarLje7i0/hqdefault.jpg', 54171, 527, 0, 0, '2026-06-13 13:36:55', '2015-07-09', 205, 103.3594, 0.0946, 0.3675, -10.2408, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '522611f5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('522611f5-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('522611f5-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('522d30dc-6616-11f1-9914-80ca5293d4d8', '깡 (GANG)', '비', 'R&B', '10s', '3세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=8VTRGhmTy9s', '8VTRGhmTy9s', 'https://i.ytimg.com/vi/8VTRGhmTy9s/hqdefault.jpg', 36937, 265, 0, 0, '2026-06-13 13:36:55', '2017-01-17', 199, 147.6562, 0.1009, 0.4899, -9.9624, 'B', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '522d30dc-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('522d30dc-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('522d30dc-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('523cf56d-6616-11f1-9914-80ca5293d4d8', 'Touch My Body', 'SISTAR', '댄스', '10s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=9mWd96Pi7vE', '9mWd96Pi7vE', 'https://i.ytimg.com/vi/9mWd96Pi7vE/hqdefault.jpg', 15806, 231, 0, 0, '2026-06-13 13:36:40', '2014-06-02', 239, 129.1992, 0.0219, 0.4366, -16.5954, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '523cf56d-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('523cf56d-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('523cf56d-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('523ebf7f-6616-11f1-9914-80ca5293d4d8', '이 소설의 끝을 다시 써보려 해', '한동근', 'R&B', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=9N3efmLUCis', '9N3efmLUCis', 'https://i.ytimg.com/vi/9N3efmLUCis/hqdefault.jpg', 63057, 675, 0, 0, '2026-06-13 13:36:40', '2014-09-30', 275, 132.512, 0.0509, 0.4345, -12.9355, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '523ebf7f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('523ebf7f-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5267d8fa-6616-11f1-9914-80ca5293d4d8', 'Rollin'' 2.0', '브레이브걸스', '댄스', '10s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=Aod3m361TPk', 'Aod3m361TPk', 'https://i.ytimg.com/vi/Aod3m361TPk/hqdefault.jpg', 70876, 668, 0, 0, '2026-06-13 13:36:42', '2017-03-07', 235, 126.048, 0.0854, 0.4407, -10.6838, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5267d8fa-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5267d8fa-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5267d8fa-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5268f2a0-6616-11f1-9914-80ca5293d4d8', '눈물 뿐인 바보', '빅뱅 (BIGBANG)', '발라드', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=aoeg3f0TPew', 'aoeg3f0TPew', 'https://i.ytimg.com/vi/aoeg3f0TPew/hqdefault.jpg', 20132, 189, 0, 0, '2026-06-13 13:36:42', '2006-08-29', 207, 126.048, 0.0938, 0.4834, -10.2765, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5268f2a0-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5268f2a0-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('526a2e11-6616-11f1-9914-80ca5293d4d8', 'Heaven', '드렁큰 타이거 (Drunken Tiger)', '힙합', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=APguCew5LJg', 'APguCew5LJg', 'https://i.ytimg.com/vi/APguCew5LJg/hqdefault.jpg', 25571, 353, 0, 0, '2026-06-13 13:36:42', '2007-09-05', 242, 161.499, 0.0623, 0.5164, -12.0573, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '526a2e11-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('526a2e11-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5271b309-6616-11f1-9914-80ca5293d4d8', 'CATCH ME IF YOU CAN', 'SNSD', '댄스', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=AU4iJNCbYOQ', 'AU4iJNCbYOQ', 'https://i.ytimg.com/vi/AU4iJNCbYOQ/hqdefault.jpg', 25583, 396, 0, 0, '2026-06-13 13:36:42', '2015-04-10', 230, 132.512, 0.0293, 0.4779, -15.3355, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5271b309-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5271b309-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('527c7ded-6616-11f1-9914-80ca5293d4d8', 'Mr.Mr.', '소녀시대 (Girls'' Generation)', '댄스', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=b38g6wtdjNo', 'b38g6wtdjNo', 'https://i.ytimg.com/vi/b38g6wtdjNo/hqdefault.jpg', 15675, 383, 0, 0, '2026-06-13 13:36:43', '2014-02-24', 241, 114.8438, 0.0238, 0.3668, -16.2432, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '527c7ded-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('527c7ded-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('527d92a5-6616-11f1-9914-80ca5293d4d8', 'Bad Boy', 'Red Velvet', 'R&B', '10s', '3세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=b3KMTWHp6vY', 'b3KMTWHp6vY', 'https://i.ytimg.com/vi/b3KMTWHp6vY/hqdefault.jpg', 136196, 1894, 0, 0, '2026-06-13 13:36:43', '2018-01-29', 248, 151.9991, 0.075, 0.5376, -11.2491, 'A', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '527d92a5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('527d92a5-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('527d92a5-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52802380-6616-11f1-9914-80ca5293d4d8', 'Brand New', '신화 (SHINHWA)', '댄스', '00s', '2세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=b7PlLxHEzmg', 'b7PlLxHEzmg', 'https://i.ytimg.com/vi/b7PlLxHEzmg/hqdefault.jpg', 7423, 171, 0, 0, '2026-06-13 13:36:43', '2004-08-27', 201, 109.9568, 0.0968, 0.375, -10.1434, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52802380-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52802380-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('52802380-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52858784-6616-11f1-9914-80ca5293d4d8', 'BBIBBI (삐삐)', '아이유', '댄스', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=bDm9_nehvtE', 'bDm9_nehvtE', 'https://i.ytimg.com/vi/bDm9_nehvtE/hqdefault.jpg', 10164, 147, 0, 0, '2026-06-13 13:36:43', '2018-08-24', 204, 143.5547, 0.0641, 0.4808, -11.9315, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52858784-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52858784-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52881060-6616-11f1-9914-80ca5293d4d8', '뱅뱅뱅 (Bang,Bang,Bang)', '빅뱅 (BigBang)', '댄스', '10s', '3세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=bFzl98ivz14', 'bFzl98ivz14', 'https://i.ytimg.com/vi/bFzl98ivz14/hqdefault.jpg', 9256, 128, 0, 0, '2026-06-13 13:36:43', '2015-06-01', 209, 139.6748, 0.1143, 0.4307, -9.4195, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52881060-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52881060-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('52881060-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('528d330f-6616-11f1-9914-80ca5293d4d8', 'SOMETHING', 'GIRL''S DAY', '댄스', '10s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=BKpWPzXhO8o', 'BKpWPzXhO8o', 'https://i.ytimg.com/vi/BKpWPzXhO8o/hqdefault.jpg', 28733, 361, 0, 0, '2026-06-13 13:36:44', '2014-01-03', 203, 107.666, 0.0204, 0.4278, -16.908, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '528d330f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('528d330f-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('528d330f-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5291e3a4-6616-11f1-9914-80ca5293d4d8', '행복하지 말아요', 'MC THE MAX', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=Bm_00wTBX1M', 'Bm_00wTBX1M', 'https://i.ytimg.com/vi/Bm_00wTBX1M/hqdefault.jpg', 56019, 455, 0, 0, '2026-06-13 13:36:44', '2004-11-18', 311, 69.8374, 0.0593, 0.2971, -12.2695, 'D', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5291e3a4-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5291e3a4-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5292be2e-6616-11f1-9914-80ca5293d4d8', '처음처럼', 'MC THE MAX', 'R&B', '20s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=BowdSQxHayM', 'BowdSQxHayM', 'https://i.ytimg.com/vi/BowdSQxHayM/hqdefault.jpg', 24029, 279, 0, 0, '2026-06-13 13:36:44', '2020-03-25', 277, 139.6748, 0.0621, 0.4722, -12.0671, 'B', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5292be2e-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5292be2e-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5294dc54-6616-11f1-9914-80ca5293d4d8', '가슴아 그만해', 'MC THE MAX', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=bPOGNfD4zxk', 'bPOGNfD4zxk', 'https://i.ytimg.com/vi/bPOGNfD4zxk/hqdefault.jpg', 64449, 583, 0, 0, '2026-06-13 13:36:44', '2007-04-18', 259, 143.5547, 0.0745, 0.4723, -11.2768, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5294dc54-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5294dc54-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52a1e5f6-6616-11f1-9914-80ca5293d4d8', 'SHOCK', 'BEAST', '댄스', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=C2cJiAA1KeA', 'C2cJiAA1KeA', 'https://i.ytimg.com/vi/C2cJiAA1KeA/hqdefault.jpg', 12582, 290, 0, 0, '2026-06-13 13:36:45', '2010-01-04', 220, 135.9992, 0.0155, 0.4847, -18.0984, 'F', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52a1e5f6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52a1e5f6-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52b07b32-6616-11f1-9914-80ca5293d4d8', 'NUMBER NINE', 'T-ARA', '댄스', '10s', '3세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=CiglFiLmr7E', 'CiglFiLmr7E', 'https://i.ytimg.com/vi/CiglFiLmr7E/hqdefault.jpg', 36921, 564, 0, 0, '2026-06-13 13:36:46', '2013-10-10', 228, 129.1992, 0.0188, 0.4673, -17.2643, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52b07b32-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52b07b32-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('52b07b32-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52b187f0-6616-11f1-9914-80ca5293d4d8', '정말 사랑했을까', '브라운 아이드 소울', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=CItaQMKXHZ0', 'CItaQMKXHZ0', 'https://i.ytimg.com/vi/CItaQMKXHZ0/hqdefault.jpg', 18750, 155, 0, 0, '2026-06-13 13:36:46', '2003-09-17', 236, 132.512, 0.0745, 0.4265, -11.2811, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52b187f0-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52b187f0-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52b3b3c3-6616-11f1-9914-80ca5293d4d8', '롤리팝 (Lollipop)', '빅뱅 & 2NE1', 'R&B', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=CJUzcVRYKds', 'CJUzcVRYKds', 'https://i.ytimg.com/vi/CJUzcVRYKds/hqdefault.jpg', 40346, 470, 0, 0, '2026-06-13 13:36:46', '2009-07-01', 196, 120.1853, 0.0972, 0.4185, -10.1248, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52b3b3c3-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52b3b3c3-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('52b3b3c3-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52c3a09c-6616-11f1-9914-80ca5293d4d8', '훗 (Hoot)', '소녀시대', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=cXzBq781Auo', 'cXzBq781Auo', 'https://i.ytimg.com/vi/cXzBq781Auo/hqdefault.jpg', 10049, 238, 0, 0, '2026-06-13 13:36:47', '2010-10-19', 182, 129.1992, 0.0147, 0.433, -18.3396, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52c3a09c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52c3a09c-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52cfa32c-6616-11f1-9914-80ca5293d4d8', 'Russian Roulette', 'Red Velvet', '댄스', '10s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=D9kXVHmNjm8', 'D9kXVHmNjm8', 'https://i.ytimg.com/vi/D9kXVHmNjm8/hqdefault.jpg', 31038, 641, 0, 0, '2026-06-13 13:36:48', '2016-09-07', 209, 132.512, 0.0155, 0.4035, -18.0834, 'F#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52cfa32c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52cfa32c-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('52cfa32c-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52d1fc60-6616-11f1-9914-80ca5293d4d8', 'SHAKE IT', 'SISTAR', '댄스', '10s', '2세대', '신남, 자신감', 'song', 'https://www.youtube.com/watch?v=DdEVi0QubT0', 'DdEVi0QubT0', 'https://i.ytimg.com/vi/DdEVi0QubT0/hqdefault.jpg', 2026, 57, 0, 0, '2026-06-13 13:36:48', '2015-06-01', 196, 120.1853, 0.0186, 0.3775, -17.3036, 'B', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52d1fc60-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52d1fc60-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('52d1fc60-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52d52505-6616-11f1-9914-80ca5293d4d8', '뱅뱅뱅 (BANG BANG BANG)', 'BIGBANG', '댄스', '10s', '3세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=dfegLrQvUoo', 'dfegLrQvUoo', 'https://i.ytimg.com/vi/dfegLrQvUoo/hqdefault.jpg', 4714, 125, 0, 0, '2026-06-13 13:36:15', '2016-12-13', 201, 129.1992, 0.0234, 0.4466, -16.3048, 'F', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52d52505-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52d52505-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('52d52505-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52d61612-6616-11f1-9914-80ca5293d4d8', 'INTO THE NEW WORLD', '소녀시대 (SNSD)', '댄스', '00s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=dfxtuir8CSM', 'dfxtuir8CSM', 'https://i.ytimg.com/vi/dfxtuir8CSM/hqdefault.jpg', 4368, 139, 0, 0, '2026-06-13 13:36:15', '2007-08-02', 259, 107.666, 0.0217, 0.377, -16.6391, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52d61612-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52d61612-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('52d61612-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52d96141-6616-11f1-9914-80ca5293d4d8', 'So Hot', 'Wonder Girls', '댄스', '10s', '2세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=dKDw9r_vQVM', 'dKDw9r_vQVM', 'https://i.ytimg.com/vi/dKDw9r_vQVM/hqdefault.jpg', 784, 37, 0, 0, '2026-06-13 13:36:17', '2011-11-25', 166, 139.6748, 0.0246, 0.4609, -16.0872, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52d96141-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52d96141-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('52d96141-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52dd90ab-6616-11f1-9914-80ca5293d4d8', '잠시만 안녕', 'MC THE MAX', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=DNL0wCZx1qw', 'DNL0wCZx1qw', 'https://i.ytimg.com/vi/DNL0wCZx1qw/hqdefault.jpg', 19056, 234, 0, 0, '2026-06-13 13:36:18', '2008-02-01', 272, 147.6562, 0.0622, 0.4609, -12.0615, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52dd90ab-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52dd90ab-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52f00933-6616-11f1-9914-80ca5293d4d8', 'Lion Heart', 'Girls'' Generation (SNSD)', '댄스', '20s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=eBx4pH8jiYc', 'eBx4pH8jiYc', 'https://i.ytimg.com/vi/eBx4pH8jiYc/hqdefault.jpg', 44539, 809, 0, 0, '2026-06-13 13:36:26', '2021-03-05', 248, 126.048, 0.0908, 0.4009, -10.4199, 'A#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52f00933-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52f00933-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('52f00933-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52f2e66e-6616-11f1-9914-80ca5293d4d8', '빨간 맛', 'Red Velvet', '댄스', '20s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=EfoG_GPWVls', 'EfoG_GPWVls', 'https://i.ytimg.com/vi/EfoG_GPWVls/hqdefault.jpg', 45180, 759, 0, 0, '2026-06-13 13:36:27', '2026-04-20', 206, 126.048, 0.0986, 0.4367, -10.0612, 'A', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52f2e66e-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52f2e66e-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('52f2e66e-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52f683e5-6616-11f1-9914-80ca5293d4d8', '보고싶다', '김범수', '발라드', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=eHEVXG3wD58', 'eHEVXG3wD58', 'https://i.ytimg.com/vi/eHEVXG3wD58/hqdefault.jpg', 35479, 337, 0, 0, '2026-06-13 13:36:28', '2003-04-01', 224, 129.1992, 0.053, 0.3828, -12.7565, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52f683e5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52f683e5-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52f75d6f-6616-11f1-9914-80ca5293d4d8', 'Sexy Love', '티아라', '댄스', '10s', '2세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=eHroMPyDlQ4', 'eHroMPyDlQ4', 'https://i.ytimg.com/vi/eHroMPyDlQ4/hqdefault.jpg', 4469, 232, 0, 0, '2026-06-13 13:36:29', '2012-09-04', 219, 132.512, 0.0266, 0.475, -15.7576, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52f75d6f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52f75d6f-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('52f75d6f-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52fd3cad-6616-11f1-9914-80ca5293d4d8', '불장난', 'BLACKPINK', '댄스', '20s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=EobH_B3Uh40', 'EobH_B3Uh40', 'https://i.ytimg.com/vi/EobH_B3Uh40/hqdefault.jpg', 5024, 162, 0, 0, '2026-06-13 13:36:31', '2022-09-04', 183, 105.4688, 0.0178, 0.4108, -17.4886, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52fd3cad-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52fd3cad-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('52fd3cad-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('52ff47ca-6616-11f1-9914-80ca5293d4d8', 'TIME TO LOVE', 'T-ARA & SUPERNOVA', '댄스', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=epeSgP-KwlA', 'epeSgP-KwlA', 'https://i.ytimg.com/vi/epeSgP-KwlA/hqdefault.jpg', 68150, 737, 0, 0, '2026-06-13 13:36:32', '2011-11-11', 218, 105.4688, 0.0356, 0.4473, -14.4865, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '52ff47ca-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('52ff47ca-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53035a45-6616-11f1-9914-80ca5293d4d8', 'Genie', '소녀시대', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=eyh15C7mBdQ', 'eyh15C7mBdQ', 'https://i.ytimg.com/vi/eyh15C7mBdQ/hqdefault.jpg', 174469, 3803, 0, 0, '2026-06-13 13:36:33', '2009-06-25', 207, 126.048, 0.0169, 0.4221, -17.7195, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53035a45-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53035a45-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('53035a45-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5304fbe3-6616-11f1-9914-80ca5293d4d8', 'Shake It', 'SISTAR', '댄스', '10s', '2세대', '신남, 자신감', 'song', 'https://www.youtube.com/watch?v=EYThzhqAKS8', 'EYThzhqAKS8', 'https://i.ytimg.com/vi/EYThzhqAKS8/hqdefault.jpg', 10762, 220, 0, 0, '2026-06-13 13:36:33', '2015-06-01', 205, 120.1853, 0.0598, 0.3671, -12.2323, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5304fbe3-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5304fbe3-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('5304fbe3-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('530ab207-6616-11f1-9914-80ca5293d4d8', 'Rum Pum Pum Pum', 'f(x)', '댄스', '10s', '3세대', '설렘, 외로움', 'song', 'https://www.youtube.com/watch?v=F3Ma5f4kcLk', 'F3Ma5f4kcLk', 'https://i.ytimg.com/vi/F3Ma5f4kcLk/hqdefault.jpg', 15730, 380, 0, 0, '2026-06-13 13:36:33', '2013-04-22', 201, 120.1853, 0.0174, 0.4653, -17.5955, 'F#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '530ab207-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('530ab207-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('530ab207-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5316dd9b-6616-11f1-9914-80ca5293d4d8', 'U-Go-Girl', '이효리', '댄스', '00s', '2세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=feUtHjQXZTY', 'feUtHjQXZTY', 'https://i.ytimg.com/vi/feUtHjQXZTY/hqdefault.jpg', 75266, 755, 0, 0, '2026-06-13 13:36:34', '2008-09-22', 226, 101.3327, 0.094, 0.396, -10.2709, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5316dd9b-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5316dd9b-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('5316dd9b-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('531deaa6-6616-11f1-9914-80ca5293d4d8', 'WILD', '9MUSES (나인뮤지스)', '댄스', '10s', '2세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=flrGRexUUSY', 'flrGRexUUSY', 'https://i.ytimg.com/vi/flrGRexUUSY/hqdefault.jpg', 1155, 67, 0, 0, '2026-06-13 13:36:35', '2013-05-09', 207, 132.512, 0.0262, 0.4731, -15.8105, 'F', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '531deaa6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('531deaa6-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('531deaa6-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('531fb622-6616-11f1-9914-80ca5293d4d8', 'Touch My Body', 'SISTAR', '댄스', '10s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=FnNSOaO_OrI', 'FnNSOaO_OrI', 'https://i.ytimg.com/vi/FnNSOaO_OrI/hqdefault.jpg', 54524, 1115, 0, 0, '2026-06-13 13:36:35', '2014-06-02', 212, 129.1992, 0.0213, 0.4438, -16.7186, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '531fb622-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('531fb622-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('531fb622-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('532557c2-6616-11f1-9914-80ca5293d4d8', '아파', '2NE1', '발라드', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=FTo50q57Nl8', 'FTo50q57Nl8', 'https://i.ytimg.com/vi/FTo50q57Nl8/hqdefault.jpg', 66527, 746, 0, 0, '2026-06-13 13:36:35', '2011-07-01', 274, 151.9991, 0.0672, 0.4857, -11.7253, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '532557c2-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('532557c2-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('532a550e-6616-11f1-9914-80ca5293d4d8', '소원을 말해봐 (Genie)', 'Girls'' Generation', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=fz1K6C7JsEo', 'fz1K6C7JsEo', 'https://i.ytimg.com/vi/fz1K6C7JsEo/hqdefault.jpg', 2512, 52, 0, 0, '2026-06-13 13:36:35', '2009-06-25', 227, 132.512, 0.0262, 0.4682, -15.8163, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '532a550e-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('532a550e-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('532a550e-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('532fe164-6616-11f1-9914-80ca5293d4d8', 'all of my life', '박원', '어쿠스틱', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=g9fWqNc7oUc', 'g9fWqNc7oUc', 'https://i.ytimg.com/vi/g9fWqNc7oUc/hqdefault.jpg', 23278, 227, 0, 0, '2026-06-13 13:36:36', '2017-07-27', 199, 132.512, 0.069, 0.4504, -11.6116, 'A#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '532fe164-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('532fe164-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('533aac35-6616-11f1-9914-80ca5293d4d8', '거울아 거울아 (Mirror Mirror)', '4MINUTE', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=GpnaFj5xNz4', 'GpnaFj5xNz4', 'https://i.ytimg.com/vi/GpnaFj5xNz4/hqdefault.jpg', 5298, 111, 0, 0, '2026-06-13 13:36:36', '2011-04-04', 201, 129.1992, 0.0214, 0.4434, -16.6924, 'A#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '533aac35-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('533aac35-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5343cff8-6616-11f1-9914-80ca5293d4d8', '환상동화 (Secret Story of the Swan)', 'IZ*ONE', '댄스', '10s', '3세대', '환상, 설렘', 'song', 'https://www.youtube.com/watch?v=GTCNeJx3zFM', 'GTCNeJx3zFM', 'https://i.ytimg.com/vi/GTCNeJx3zFM/hqdefault.jpg', 6038, 177, 0, 0, '2026-06-13 13:36:37', '2018-10-29', 182, 103.3594, 0.0157, 0.41, -18.0321, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5343cff8-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5343cff8-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5345df80-6616-11f1-9914-80ca5293d4d8', '라차타 (LA chA TA)', 'f(x)', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=GTW7rYx3OwA', 'GTW7rYx3OwA', 'https://i.ytimg.com/vi/GTW7rYx3OwA/hqdefault.jpg', 25925, 333, 0, 0, '2026-06-13 13:36:37', '2009-09-05', 173, 114.8438, 0.0629, 0.4366, -12.0142, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5345df80-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5345df80-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5345df80-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('534852fc-6616-11f1-9914-80ca5293d4d8', '첫 눈', 'EXO', 'R&B', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=GYh7Z3ipR00', 'GYh7Z3ipR00', 'https://i.ytimg.com/vi/GYh7Z3ipR00/hqdefault.jpg', 15806, 265, 0, 0, '2026-06-13 13:36:37', '2013-12-02', 182, 95.7031, 0.0842, 0.3979, -10.747, 'A#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '534852fc-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('534852fc-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('534928e0-6616-11f1-9914-80ca5293d4d8', 'Insomnia', '휘성', '댄스', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=GY_tcCHtJwQ', 'GY_tcCHtJwQ', 'https://i.ytimg.com/vi/GY_tcCHtJwQ/hqdefault.jpg', 57648, 574, 0, 0, '2026-06-13 13:36:37', '2007-01-01', 227, 129.1992, 0.057, 0.494, -12.4377, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '534928e0-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('534928e0-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('534b300c-6616-11f1-9914-80ca5293d4d8', 'BO PEEP BO PEEP', 'T-ARA', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=gZPI4CR30Yc', 'gZPI4CR30Yc', 'https://i.ytimg.com/vi/gZPI4CR30Yc/hqdefault.jpg', 8887, 114, 0, 0, '2026-06-13 13:36:38', '2009-11-27', 189, 132.512, 0.0883, 0.4541, -10.5385, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '534b300c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('534b300c-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('534b300c-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('534cdab8-6616-11f1-9914-80ca5293d4d8', 'Into The New World', '소녀시대 (Girls'' Generation)', '댄스', '00s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=H-fyAE005J4', 'H-fyAE005J4', 'https://i.ytimg.com/vi/H-fyAE005J4/hqdefault.jpg', 29353, 489, 0, 0, '2026-06-13 13:36:38', '2007-08-02', 261, 103.3594, 0.1095, 0.4075, -9.6069, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '534cdab8-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('534cdab8-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('534cdab8-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5353cd32-6616-11f1-9914-80ca5293d4d8', 'Run Devil Run', 'Girls'' Generation', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=hBHZdGdAVZQ', 'hBHZdGdAVZQ', 'https://i.ytimg.com/vi/hBHZdGdAVZQ/hqdefault.jpg', 56246, 1010, 0, 0, '2026-06-13 13:36:38', '2010-03-09', 202, 129.1992, 0.0189, 0.4027, -17.2428, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5353cd32-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5353cd32-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5358d206-6616-11f1-9914-80ca5293d4d8', 'Genie (소원을 말해봐)', 'Girls'' Generation', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=hgShsGSPqdw', 'hgShsGSPqdw', 'https://i.ytimg.com/vi/hgShsGSPqdw/hqdefault.jpg', 49742, 895, 0, 0, '2026-06-13 13:36:38', '2009-06-25', 246, 123.0469, 0.0272, 0.4404, -15.6498, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5358d206-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5358d206-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5358d206-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('535b36fd-6616-11f1-9914-80ca5293d4d8', 'Hot Summer', 'f(x)', '댄스', '10s', '2세대', '신남, 설렘', 'song', 'https://www.youtube.com/watch?v=Hjgu4mEUe88', 'Hjgu4mEUe88', 'https://i.ytimg.com/vi/Hjgu4mEUe88/hqdefault.jpg', 91856, 1661, 0, 0, '2026-06-13 13:36:39', '2011-07-11', 219, 123.0469, 0.0841, 0.4084, -10.7502, 'C#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '535b36fd-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('535b36fd-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('535b36fd-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('535cde68-6616-11f1-9914-80ca5293d4d8', 'BLUE', 'BIGBANG', 'R&B', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=HoFHXiEz1Bs', 'HoFHXiEz1Bs', 'https://i.ytimg.com/vi/HoFHXiEz1Bs/hqdefault.jpg', 35805, 362, 0, 0, '2026-06-13 13:36:39', '2012-04-08', 236, 126.048, 0.0859, 0.4444, -10.6624, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '535cde68-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('535cde68-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5375db98-6616-11f1-9914-80ca5293d4d8', 'Give It To Me', 'SISTAR', '댄스', '10s', '2세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=Ih6pmg9HjrA', 'Ih6pmg9HjrA', 'https://i.ytimg.com/vi/Ih6pmg9HjrA/hqdefault.jpg', 2851, 90, 0, 0, '2026-06-19 23:32:09', '2013-06-13', 218, 135.9992, 1, 0.1494, -17.0267, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5375db98-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5375db98-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('5375db98-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5376ead5-6616-11f1-9914-80ca5293d4d8', 'PLAYING WITH FIRE (불장난)', 'BLACKPINK', '댄스', '10s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=ij3c1UZ9T_E', 'ij3c1UZ9T_E', 'https://i.ytimg.com/vi/ij3c1UZ9T_E/hqdefault.jpg', 120341, 2468, 0, 0, '2026-06-13 13:35:19', '2016-11-01', 195, 97.5088, 0.0188, 0.382, -17.2629, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5376ead5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5376ead5-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5376ead5-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('537aa63d-6616-11f1-9914-80ca5293d4d8', 'SEXY LOVE', 'T-ARA', '댄스', '20s', '2세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=IPHtx0vopgU', 'IPHtx0vopgU', 'https://i.ytimg.com/vi/IPHtx0vopgU/hqdefault.jpg', 33173, 543, 0, 0, '2026-06-13 13:35:20', '2022-04-10', 208, 129.1992, 0.0184, 0.4536, -17.3414, 'C#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '537aa63d-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('537aa63d-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('537aa63d-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('537b67bb-6616-11f1-9914-80ca5293d4d8', 'LONELY', '2NE1', '발라드', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=IPj572FvQ3Y', 'IPj572FvQ3Y', 'https://i.ytimg.com/vi/IPj572FvQ3Y/hqdefault.jpg', 15202, 242, 0, 0, '2026-06-13 13:35:21', '2011-06-09', 208, 95.7031, 0.0217, 0.3562, -16.6402, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '537b67bb-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('537b67bb-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('537c5da5-6616-11f1-9914-80ca5293d4d8', 'One Love', 'MC THE MAX', 'R&B', '20s', '2세대', '위로', 'song', 'https://www.youtube.com/watch?v=ipUDjKzf46s', 'ipUDjKzf46s', 'https://i.ytimg.com/vi/ipUDjKzf46s/hqdefault.jpg', 85256, 1118, 0, 0, '2026-06-13 13:35:21', '2020-03-25', 236, 139.6748, 0.044, 0.4608, -13.5669, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '537c5da5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('COMFORT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('537c5da5-6616-11f1-9914-80ca5293d4d8', 'COMFORT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53833d65-6616-11f1-9914-80ca5293d4d8', 'NOBODY', 'WONDER GIRLS', '댄스', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=ItdfqsuAXyQ', 'ItdfqsuAXyQ', 'https://i.ytimg.com/vi/ItdfqsuAXyQ/hqdefault.jpg', 13580, 338, 0, 0, '2026-06-13 13:35:23', '2012-11-09', 218, 126.048, 0.0165, 0.472, -17.8272, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53833d65-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53833d65-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53862ab9-6616-11f1-9914-80ca5293d4d8', '4 Walls', 'f(x)', '댄스', '20s', '3세대', '외로움, 설렘', 'song', 'https://www.youtube.com/watch?v=IWeZeLQqLXg', 'IWeZeLQqLXg', 'https://i.ytimg.com/vi/IWeZeLQqLXg/hqdefault.jpg', 88072, 1104, 0, 0, '2026-06-13 13:35:25', '2026-01-16', 413, 126.048, 0.0808, 0.4448, -10.9285, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53862ab9-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53862ab9-6616-11f1-9914-80ca5293d4d8', 'LONELY'), ('53862ab9-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53897abe-6616-11f1-9914-80ca5293d4d8', 'NUNU NANA', 'Jessi', '힙합', '20s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=Ix6AoRAAIZ0', 'Ix6AoRAAIZ0', 'https://i.ytimg.com/vi/Ix6AoRAAIZ0/hqdefault.jpg', 827, 20, 0, 0, '2026-06-13 13:35:26', '2024-05-08', 199, 105.4688, 0.0635, 0.4007, -11.9735, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53897abe-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53897abe-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('538a79b2-6616-11f1-9914-80ca5293d4d8', 'La Vie en Rose', 'IZ*ONE', '댄스', '20s', '5세대', '설렘, 환상', 'song', 'https://www.youtube.com/watch?v=IYFDLtAVykk', 'IYFDLtAVykk', 'https://i.ytimg.com/vi/IYFDLtAVykk/hqdefault.jpg', 51001, 1150, 0, 0, '2026-06-13 13:35:26', '2024-02-21', 238, 114.8438, 0.0157, 0.4282, -18.0527, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '538a79b2-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('538a79b2-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5393ea37-6616-11f1-9914-80ca5293d4d8', '잊어버리지마 (Don''t Forget)', '크러쉬 (Crush)', 'R&B', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=JBODYb3vHoE', 'JBODYb3vHoE', 'https://i.ytimg.com/vi/JBODYb3vHoE/hqdefault.jpg', 18176, 231, 0, 0, '2026-06-13 13:35:30', '2016-01-22', 227, 93.9631, 0.1357, 0.4203, -8.6756, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5393ea37-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5393ea37-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53969cb7-6616-11f1-9914-80ca5293d4d8', 'FICTION', 'BEAST (비스트)', '댄스', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=jH3HH3ufktI', 'jH3HH3ufktI', 'https://i.ytimg.com/vi/jH3HH3ufktI/hqdefault.jpg', 37709, 826, 0, 0, '2026-06-19 23:32:12', '2011-05-17', 229, 129.1992, 0.0238, 0.5123, -16.2406, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53969cb7-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53969cb7-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5398975b-6616-11f1-9914-80ca5293d4d8', '마지막 인사', '빅뱅', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=jK9-gDMnRfw', 'jK9-gDMnRfw', 'https://i.ytimg.com/vi/jK9-gDMnRfw/hqdefault.jpg', 74105, 833, 0, 0, '2026-06-13 13:35:32', '2007-11-22', 274, 132.512, 0.0572, 0.4761, -12.4276, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5398975b-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5398975b-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('539fe433-6616-11f1-9914-80ca5293d4d8', '가지마 가지마', '브라운 아이즈', '발라드', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=JQqmnlioJ5M', 'JQqmnlioJ5M', 'https://i.ytimg.com/vi/JQqmnlioJ5M/hqdefault.jpg', 29553, 314, 0, 0, '2026-06-13 13:35:35', '2008-06-19', 283, 62.2647, 0.0763, 0.3133, -11.1751, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '539fe433-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('539fe433-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53a0c578-6616-11f1-9914-80ca5293d4d8', 'MINISKIRT', 'AOA', '댄스', '10s', '3세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=Jq_EKMdka7k', 'Jq_EKMdka7k', 'https://i.ytimg.com/vi/Jq_EKMdka7k/hqdefault.jpg', 7086, 152, 0, 0, '2026-06-13 13:35:35', '2014-06-25', 177, 117.4538, 0.0136, 0.4399, -18.6605, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53a0c578-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53a0c578-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('53a0c578-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53a308fb-6616-11f1-9914-80ca5293d4d8', 'And July', '헤이즈 (Heize) & 딘 (DEAN)', 'R&B', '10s', '3세대', '외로움, 설렘', 'song', 'https://www.youtube.com/watch?v=jtEt-IkmJVw', 'jtEt-IkmJVw', 'https://i.ytimg.com/vi/jtEt-IkmJVw/hqdefault.jpg', 95992, 597, 0, 0, '2026-06-13 13:35:36', '2016-07-18', 192, 97.5088, 0.0811, 0.3925, -10.9092, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53a308fb-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53a308fb-6616-11f1-9914-80ca5293d4d8', 'LONELY'), ('53a308fb-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53a3d233-6616-11f1-9914-80ca5293d4d8', 'Be My Baby', 'Wonder Girls', '댄스', '10s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=JuwRlt2qSvc', 'JuwRlt2qSvc', 'https://i.ytimg.com/vi/JuwRlt2qSvc/hqdefault.jpg', 3224, 87, 0, 0, '2026-06-13 13:35:37', '2012-11-25', 201, 166.7087, 0.0221, 0.5586, -16.5592, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53a3d233-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53a3d233-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('53a3d233-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53a67bb4-6616-11f1-9914-80ca5293d4d8', 'CHEER UP', 'TWICE', '댄스', '20s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=jxQIER3Pi_8', 'jxQIER3Pi_8', 'https://i.ytimg.com/vi/jxQIER3Pi_8/hqdefault.jpg', 6846, 144, 0, 0, '2026-06-13 13:35:38', '2020-08-19', 212, 166.7087, 0.106, 0.4979, -9.7474, 'B', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53a67bb4-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53a67bb4-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('53a67bb4-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53a985b6-6616-11f1-9914-80ca5293d4d8', 'Egotistic', 'MAMAMOO', 'R&B', '20s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=j_Mb-9xVz_s', 'j_Mb-9xVz_s', 'https://i.ytimg.com/vi/j_Mb-9xVz_s/hqdefault.jpg', 25982, 416, 0, 0, '2026-06-13 13:35:40', '2024-04-10', 217, 103.3594, 0.0142, 0.3742, -18.4685, 'B', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53a985b6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53a985b6-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53adf08e-6616-11f1-9914-80ca5293d4d8', 'LOVEY DOVEY', 'T-ARA', '댄스', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=K54FFr3u9Jg', 'K54FFr3u9Jg', 'https://i.ytimg.com/vi/K54FFr3u9Jg/hqdefault.jpg', 23273, 378, 0, 0, '2026-06-13 13:35:42', '2012-01-03', 208, 126.048, 0.0165, 0.4071, -17.8338, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53adf08e-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53adf08e-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53b1a019-6616-11f1-9914-80ca5293d4d8', 'Crazy (미쳐)', '4minute (포미닛)', '댄스', '10s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=KcXN_GzoShk', 'KcXN_GzoShk', 'https://i.ytimg.com/vi/KcXN_GzoShk/hqdefault.jpg', 58098, 1499, 0, 0, '2026-06-13 13:35:43', '2015-06-15', 209, 87.5927, 0.0176, 0.3919, -17.5436, 'D', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53b1a019-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53b1a019-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('53b1a019-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53b3f442-6616-11f1-9914-80ca5293d4d8', 'Dumb Dumb', 'Red Velvet', '댄스', '20s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=kgLgGKVJKbE', 'kgLgGKVJKbE', 'https://i.ytimg.com/vi/kgLgGKVJKbE/hqdefault.jpg', 1042, 26, 0, 0, '2026-06-13 13:35:44', '2024-04-10', 200, 147.6562, 0.0504, 0.508, -12.9739, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53b3f442-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53b3f442-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53c629b7-6616-11f1-9914-80ca5293d4d8', 'Rough', 'GFRIEND', '댄스', '20s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=knhmO1mgyU0', 'knhmO1mgyU0', 'https://i.ytimg.com/vi/knhmO1mgyU0/hqdefault.jpg', 12940, 257, 0, 0, '2026-06-13 13:35:49', '2024-09-11', 206, 112.3471, 0.0927, 0.4462, -10.3311, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53c629b7-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53c629b7-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53d57e2f-6616-11f1-9914-80ca5293d4d8', 'Feel Special', 'TWICE', '댄스', '20s', '3세대', '위로, 설렘', 'song', 'https://www.youtube.com/watch?v=l5z5zqtMvBo', 'l5z5zqtMvBo', 'https://i.ytimg.com/vi/l5z5zqtMvBo/hqdefault.jpg', 24801, 323, 0, 0, '2026-06-13 13:35:56', '2021-02-09', 598, 135.9992, 0.0889, 0.4413, -10.5111, 'G#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53d57e2f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('COMFORT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53d57e2f-6616-11f1-9914-80ca5293d4d8', 'COMFORT'), ('53d57e2f-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53dc69ca-6616-11f1-9914-80ca5293d4d8', 'Give It To Me', 'SISTAR', '댄스', '10s', '2세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=ld0WsY9ykaA', 'ld0WsY9ykaA', 'https://i.ytimg.com/vi/ld0WsY9ykaA/hqdefault.jpg', 13510, 271, 0, 0, '2026-06-13 13:35:59', '2013-06-13', 205, 135.9992, 0.0248, 0.513, -16.0623, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53dc69ca-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53dc69ca-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('53dc69ca-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53e0f306-6616-11f1-9914-80ca5293d4d8', 'Kill This Love', 'BLACKPINK', '댄스', '20s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=LkgXX80Etu8', 'LkgXX80Etu8', NULL, 0, 0, 0, 0, '2026-06-13 13:36:01', '2021-06-01', 188, 132.512, 0.0162, 0.4478, -17.9106, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53e0f306-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53e0f306-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53e621d0-6616-11f1-9914-80ca5293d4d8', '으르렁 (Growl)', 'EXO', 'R&B', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=lrcCF9KmPqw', 'lrcCF9KmPqw', 'https://i.ytimg.com/vi/lrcCF9KmPqw/hqdefault.jpg', 4962, 111, 0, 0, '2026-06-13 13:36:03', '2013-08-05', 206, 90.6661, 0.0172, 0.3493, -17.6438, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53e621d0-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53e621d0-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53e91b2a-6616-11f1-9914-80ca5293d4d8', '씨스루 (Seethru)', '프라이머리 (Primary)', 'R&B', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=Lt07GjGEXNE', 'Lt07GjGEXNE', 'https://i.ytimg.com/vi/Lt07GjGEXNE/hqdefault.jpg', 125201, 1302, 0, 0, '2026-06-13 13:36:04', '2012-04-26', 252, 112.3471, 0.0824, 0.3946, -10.8405, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53e91b2a-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53e91b2a-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53ebe3b1-6616-11f1-9914-80ca5293d4d8', 'GOODBYE BABY', 'MISS A', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=LU88vvJrkNQ', 'LU88vvJrkNQ', 'https://i.ytimg.com/vi/LU88vvJrkNQ/hqdefault.jpg', 16744, 268, 0, 0, '2026-06-13 13:36:05', '2011-08-01', 230, 135.9992, 0.015, 0.4502, -18.242, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53ebe3b1-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53ebe3b1-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53ed3774-6616-11f1-9914-80ca5293d4d8', '뚜두뚜두 (DDU-DU DDU-DU)', 'BLACKPINK', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=luWPerxBi_A', 'luWPerxBi_A', 'https://i.ytimg.com/vi/luWPerxBi_A/hqdefault.jpg', 3660, 133, 0, 0, '2026-06-13 13:36:06', '2018-06-15', 199, 151.9991, 0.0217, 0.5128, -16.6282, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53ed3774-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53ed3774-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53ef334f-6616-11f1-9914-80ca5293d4d8', 'TOUCH MY BODY', 'SISTAR', '댄스', '10s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=LvsSsutDr94', 'LvsSsutDr94', 'https://i.ytimg.com/vi/LvsSsutDr94/hqdefault.jpg', 10336, 193, 0, 0, '2026-06-13 13:36:06', '2014-06-02', 204, 129.1992, 0.0244, 0.444, -16.1281, 'F#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53ef334f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53ef334f-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('53ef334f-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53f447d8-6616-11f1-9914-80ca5293d4d8', 'The Boys', 'Girls'' Generation', '댄스', '20s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=m11Ck1El5P0', 'm11Ck1El5P0', 'https://i.ytimg.com/vi/m11Ck1El5P0/hqdefault.jpg', 64336, 1562, 0, 0, '2026-06-13 13:36:08', '2020-09-25', 228, 114.8438, 0.0141, 0.4114, -18.5185, 'C#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53f447d8-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53f447d8-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53f58b57-6616-11f1-9914-80ca5293d4d8', '시차 (We Are)', '우원재 (Feat. 로꼬 & GRAY)', '힙합', '10s', NULL, '외로움, 자신감', 'song', 'https://www.youtube.com/watch?v=m2CgGy3pmrY', 'm2CgGy3pmrY', 'https://i.ytimg.com/vi/m2CgGy3pmrY/hqdefault.jpg', 26261, 286, 0, 0, '2026-06-13 13:36:09', '2017-09-04', 234, 120.1853, 0.0961, 0.4301, -10.1728, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53f58b57-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53f58b57-6616-11f1-9914-80ca5293d4d8', 'LONELY'), ('53f58b57-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53f6a526-6616-11f1-9914-80ca5293d4d8', 'Secret Garden', 'OH MY GIRL', '댄스', '20s', '3세대', '환상, 설렘', 'song', 'https://www.youtube.com/watch?v=M2LIChxxwZs', 'M2LIChxxwZs', 'https://i.ytimg.com/vi/M2LIChxxwZs/hqdefault.jpg', 32192, 762, 0, 0, '2026-06-13 13:36:09', '2024-02-21', 253, 105.4688, 0.0148, 0.3893, -18.2865, 'D', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53f6a526-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53f6a526-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53f7f380-6616-11f1-9914-80ca5293d4d8', 'La Vie en Rose', 'IZ*ONE', '댄스', '10s', '3세대', '설렘, 환상', 'song', 'https://www.youtube.com/watch?v=m3oTCViw5zQ', 'm3oTCViw5zQ', 'https://i.ytimg.com/vi/m3oTCViw5zQ/hqdefault.jpg', 1411, 36, 0, 0, '2026-06-13 13:36:10', '2018-10-29', 270, 114.8438, 0.0076, 0.3959, -21.1703, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53f7f380-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53f7f380-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('53fd19be-6616-11f1-9914-80ca5293d4d8', '라차타', 'f(x)', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=MBF93K5BMYY', 'MBF93K5BMYY', 'https://i.ytimg.com/vi/MBF93K5BMYY/hqdefault.jpg', 346599, 7057, 0, 0, '2026-06-13 13:36:12', '2009-09-05', 184, 114.8438, 0.062, 0.4555, -12.0754, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '53fd19be-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('53fd19be-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('53fd19be-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54016b01-6616-11f1-9914-80ca5293d4d8', '피노키오 (Danger)', 'f(x)', '댄스', '00s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=Mdsnu3Zvy6g', 'Mdsnu3Zvy6g', 'https://i.ytimg.com/vi/Mdsnu3Zvy6g/hqdefault.jpg', 1309, 49, 0, 0, '2026-06-13 13:36:13', '2009-06-04', 194, 117.4538, 0.0149, 0.3968, -18.2708, 'B', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54016b01-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54016b01-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54036c5d-6616-11f1-9914-80ca5293d4d8', '으르렁 (Growl)', 'EXO', 'R&B', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=MESVAP6-ipg', 'MESVAP6-ipg', 'https://i.ytimg.com/vi/MESVAP6-ipg/hqdefault.jpg', 45745, 558, 0, 0, '2026-06-13 13:34:14', '2013-08-05', 218, 93.9631, 0.1138, 0.3294, -9.4372, 'B', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54036c5d-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54036c5d-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('540cbd77-6616-11f1-9914-80ca5293d4d8', 'VIEW', '샤이니 (SHINee)', 'R&B', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=mle1wVHbqbQ', 'mle1wVHbqbQ', 'https://i.ytimg.com/vi/mle1wVHbqbQ/hqdefault.jpg', 31424, 368, 0, 0, '2026-06-13 13:34:17', '2015-05-18', 181, 126.048, 0.0665, 0.5109, -11.7723, 'A#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '540cbd77-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('540cbd77-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5413a269-6616-11f1-9914-80ca5293d4d8', '다이노소어 (Dinosaur)', '악뮤(AKMU)', '댄스', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=MqaP7_QM6Ds', 'MqaP7_QM6Ds', 'https://i.ytimg.com/vi/MqaP7_QM6Ds/hqdefault.jpg', 23154, 321, 0, 0, '2026-06-13 13:34:19', '2017-07-20', 274, 126.048, 0.0961, 0.4095, -10.1721, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5413a269-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5413a269-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5416d943-6616-11f1-9914-80ca5293d4d8', 'Kissing You', 'Girls Generation', '댄스', '00s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=MrLrOJOZXuA', 'MrLrOJOZXuA', 'https://i.ytimg.com/vi/MrLrOJOZXuA/hqdefault.jpg', 31280, 475, 0, 0, '2026-06-13 13:34:20', '2009-06-29', 182, 117.4538, 0.0094, 0.4371, -20.2767, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5416d943-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5416d943-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5417cd9f-6616-11f1-9914-80ca5293d4d8', 'Okey Dokey', 'MINO, ZICO', '힙합', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=mRXJTIhr4QU', 'mRXJTIhr4QU', 'https://i.ytimg.com/vi/mRXJTIhr4QU/hqdefault.jpg', 45382, 374, 0, 0, '2026-06-13 13:34:21', '2015-08-29', 130, 139.6748, 0.0498, 0.4736, -13.0255, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5417cd9f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5417cd9f-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5418da24-6616-11f1-9914-80ca5293d4d8', 'Give It To Me', 'SISTAR', '댄스', '10s', '2세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=Ms-xqU73Iuk', 'Ms-xqU73Iuk', 'https://i.ytimg.com/vi/Ms-xqU73Iuk/hqdefault.jpg', 26291, 615, 0, 0, '2026-06-13 13:34:21', '2013-06-13', 217, 90.6661, 0.0205, 0.3729, -16.8733, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5418da24-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5418da24-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('5418da24-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('541aa6dd-6616-11f1-9914-80ca5293d4d8', 'Electric Shock', 'f(x)', '댄스', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=MwHiVH-013I', 'MwHiVH-013I', 'https://i.ytimg.com/vi/MwHiVH-013I/hqdefault.jpg', 39920, 699, 0, 0, '2026-06-13 13:34:22', '2012-06-14', 200, 126.048, 0.0183, 0.4839, -17.3861, 'C#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '541aa6dd-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('541aa6dd-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('541db223-6616-11f1-9914-80ca5293d4d8', 'NAVILLERA (너 그리고 나)', '여자친구 (GFRIEND)', '댄스', '10s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=MYgiuCuwrlo', 'MYgiuCuwrlo', 'https://i.ytimg.com/vi/MYgiuCuwrlo/hqdefault.jpg', 42361, 1087, 0, 0, '2026-06-19 23:32:24', '2016-07-11', 200, 126.048, 0.0174, 0.4731, -17.5959, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '541db223-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('541db223-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('541db223-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5421d478-6616-11f1-9914-80ca5293d4d8', '링가 링가 (RINGA LINGA)', '태양 (TAEYANG)', '힙합', '10s', '2세대', '신남, 자신감', 'song', 'https://www.youtube.com/watch?v=n3fwS49zUmk', 'n3fwS49zUmk', 'https://i.ytimg.com/vi/n3fwS49zUmk/hqdefault.jpg', 9711, 74, 0, 0, '2026-06-13 13:34:25', '2013-06-13', 211, 74.8981, 0.106, 0.3398, -9.7479, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5421d478-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5421d478-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('5421d478-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5422a4cb-6616-11f1-9914-80ca5293d4d8', '사랑이 잘', '아이유 & 오혁', 'R&B', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=N3HxhJ-T2s4', 'N3HxhJ-T2s4', 'https://i.ytimg.com/vi/N3HxhJ-T2s4/hqdefault.jpg', 4109, 44, 0, 0, '2026-06-13 13:34:26', '2017-04-07', 242, 132.512, 0.0249, 0.423, -16.0333, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5422a4cb-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5422a4cb-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5427281f-6616-11f1-9914-80ca5293d4d8', 'Why', '태연 (TAEYEON)', '댄스', '20s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=ND-Tzkxf8f8', 'ND-Tzkxf8f8', 'https://i.ytimg.com/vi/ND-Tzkxf8f8/hqdefault.jpg', 81236, 874, 0, 0, '2026-06-13 13:34:28', '2025-02-14', 220, 126.048, 0.0711, 0.4771, -11.4837, 'B', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5427281f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5427281f-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('542bb1a2-6616-11f1-9914-80ca5293d4d8', 'instagram', 'DEAN', 'R&B', '10s', '5세대', '외로움', 'song', 'https://www.youtube.com/watch?v=nFLF0_pmUsk', 'nFLF0_pmUsk', 'https://i.ytimg.com/vi/nFLF0_pmUsk/hqdefault.jpg', 73240, 683, 0, 0, '2026-06-13 13:34:30', '2017-12-26', 278, 97.5088, 0.113, 0.377, -9.4684, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '542bb1a2-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('542bb1a2-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('542d4998-6616-11f1-9914-80ca5293d4d8', 'No.9 (넘버나인)', 'T-ARA (티아라)', '댄스', '10s', '3세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=nFvXw_-CpNw', 'nFvXw_-CpNw', 'https://i.ytimg.com/vi/nFvXw_-CpNw/hqdefault.jpg', 91626, 1303, 0, 0, '2026-06-13 13:34:30', '2013-10-10', 239, 129.1992, 0.0209, 0.4684, -16.8021, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '542d4998-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('542d4998-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('542d4998-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('542f30df-6616-11f1-9914-80ca5293d4d8', 'GLUE', 'NINE MUSES', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=NIwHdW9J8p0', 'NIwHdW9J8p0', 'https://i.ytimg.com/vi/NIwHdW9J8p0/hqdefault.jpg', 4845, 134, 0, 0, '2026-06-13 13:34:31', '2013-12-04', 209, 129.1992, 0.0232, 0.4181, -16.3424, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '542f30df-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('542f30df-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('543b0f4e-6616-11f1-9914-80ca5293d4d8', '몽환의숲(Rock Ver.)', '키네틱플로우', '힙합', '00s', NULL, '환상', 'song', 'https://www.youtube.com/watch?v=NRI6OjbYeV8', 'NRI6OjbYeV8', 'https://i.ytimg.com/vi/NRI6OjbYeV8/hqdefault.jpg', 28916, 389, 0, 0, '2026-06-13 13:34:36', '2006-01-01', 299, 172.2656, 0.0699, 0.5386, -11.5547, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '543b0f4e-6616-11f1-9914-80ca5293d4d8';
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('543bec7c-6616-11f1-9914-80ca5293d4d8', 'The Boys (KOR Ver.)', 'Girls Generation', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=nsWxtnpCYYg', 'nsWxtnpCYYg', 'https://i.ytimg.com/vi/nsWxtnpCYYg/hqdefault.jpg', 3704, 102, 0, 0, '2026-06-13 13:34:37', '2011-10-19', 231, 114.8438, 0.0527, 0.4045, -12.7827, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '543bec7c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('543bec7c-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5442a6c6-6616-11f1-9914-80ca5293d4d8', 'Genie', '소녀시대', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=O4a2KtbP9eo', 'O4a2KtbP9eo', 'https://i.ytimg.com/vi/O4a2KtbP9eo/hqdefault.jpg', 38676, 494, 0, 0, '2026-06-13 13:34:39', '2009-06-25', 230, 126.048, 0.113, 0.415, -9.4702, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5442a6c6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5442a6c6-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5442a6c6-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('544ad5f4-6616-11f1-9914-80ca5293d4d8', '크리스마스니까 (Because It''s Christmas)', '성시경, 박효신, 이석훈, 서인국, VIXX', 'R&B', '10s', NULL, '설렘', 'song', 'https://www.youtube.com/watch?v=ogGyn1725Hg', 'ogGyn1725Hg', 'https://i.ytimg.com/vi/ogGyn1725Hg/hqdefault.jpg', 9043, 165, 0, 0, '2026-06-13 13:34:42', '2012-12-01', 193, 147.6562, 0.0282, 0.4717, -15.5051, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '544ad5f4-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('544ad5f4-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('544bcff3-6616-11f1-9914-80ca5293d4d8', 'Gee', 'Girls'' Generation (SNSD)', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=ojedhdbZuAc', 'ojedhdbZuAc', 'https://i.ytimg.com/vi/ojedhdbZuAc/hqdefault.jpg', 14478, 323, 0, 0, '2026-06-13 13:34:43', '2009-01-05', 229, 99.384, 0.0856, 0.3841, -10.6764, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '544bcff3-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('544bcff3-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('544bcff3-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54528b90-6616-11f1-9914-80ca5293d4d8', '롤러코스터 2.0 (Avicii Ver.)', '청하 & 아비치', '댄스', '20s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=oOe0VUYfkRo', 'oOe0VUYfkRo', 'https://i.ytimg.com/vi/oOe0VUYfkRo/hqdefault.jpg', 26308, 290, 0, 0, '2026-06-13 13:34:45', '2025-08-04', 252, 129.1992, 0.0799, 0.5098, -10.9758, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54528b90-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54528b90-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('54528b90-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54558465-6616-11f1-9914-80ca5293d4d8', '주문 (MIROTIC)', '동방신기 (TVXQ!)', 'R&B', '00s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=OSOB4NtGa1s', 'OSOB4NtGa1s', 'https://i.ytimg.com/vi/OSOB4NtGa1s/hqdefault.jpg', 218098, 2524, 0, 0, '2026-06-13 13:34:46', '2008-09-26', 234, 101.3327, 0.0956, 0.4213, -10.1975, 'C#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54558465-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54558465-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('54558465-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5459970c-6616-11f1-9914-80ca5293d4d8', '반짝반짝', '걸스데이', '댄스', '10s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=OVWaJiTS_G4', 'OVWaJiTS_G4', 'https://i.ytimg.com/vi/OVWaJiTS_G4/hqdefault.jpg', 73101, 1023, 0, 0, '2026-06-13 13:34:47', '2013-07-01', 183, 161.499, 0.0683, 0.5206, -11.6574, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5459970c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5459970c-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5459970c-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('545fbbcd-6616-11f1-9914-80ca5293d4d8', '뚜두뚜두 (DDU-DU DDU-DU)', 'BLACKPINK', '댄스', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=oxypqs0Ujx4', 'oxypqs0Ujx4', 'https://i.ytimg.com/vi/oxypqs0Ujx4/hqdefault.jpg', 11713, 288, 0, 0, '2026-06-13 13:34:50', '2018-06-15', 196, 151.9991, 0.0209, 0.5025, -16.7907, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '545fbbcd-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('545fbbcd-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5460a92a-6616-11f1-9914-80ca5293d4d8', 'Roller Coaster', '청하', '댄스', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=OYtCtnNBcEs', 'OYtCtnNBcEs', 'https://i.ytimg.com/vi/OYtCtnNBcEs/hqdefault.jpg', 37078, 383, 0, 0, '2026-06-13 13:34:50', '2018-01-17', 255, 114.8438, 0.0835, 0.4571, -10.7843, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5460a92a-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5460a92a-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54619fcf-6616-11f1-9914-80ca5293d4d8', 'Pandora', 'KARA', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=p550FlwjIt4', 'p550FlwjIt4', 'https://i.ytimg.com/vi/p550FlwjIt4/hqdefault.jpg', 34689, 562, 0, 0, '2026-06-19 23:32:31', '2012-08-22', 202, 139.6748, 0.0143, 0.4888, -18.4474, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54619fcf-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54619fcf-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54630124-6616-11f1-9914-80ca5293d4d8', 'HUH', '4MINUTE', '댄스', '00s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=p9hcfuJNMtI', 'p9hcfuJNMtI', 'https://i.ytimg.com/vi/p9hcfuJNMtI/hqdefault.jpg', 34295, 560, 0, 0, '2026-06-13 13:34:51', '2009-06-15', 223, 123.0469, 0.0209, 0.4254, -16.7912, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54630124-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54630124-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('546bea72-6616-11f1-9914-80ca5293d4d8', 'COME BACK HOME', '2NE1', '댄스', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=PjzbxysSPek', 'PjzbxysSPek', 'https://i.ytimg.com/vi/PjzbxysSPek/hqdefault.jpg', 5442, 153, 0, 0, '2026-06-13 13:34:54', '2014-11-17', 219, 151.9991, 0.0213, 0.5036, -16.7184, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '546bea72-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('546bea72-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('547022c9-6616-11f1-9914-80ca5293d4d8', '그대가 분다', 'MC THE MAX', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=PNrwHBpqpOc', 'PNrwHBpqpOc', 'https://i.ytimg.com/vi/PNrwHBpqpOc/hqdefault.jpg', 76983, 854, 0, 0, '2026-06-13 13:34:55', '2008-02-01', 273, 139.6748, 0.039, 0.4685, -14.086, 'G#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '547022c9-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('547022c9-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5477a4ba-6616-11f1-9914-80ca5293d4d8', 'INSTAGRAM', 'DEAN', 'R&B', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=pSX9DfrJkyk', 'pSX9DfrJkyk', 'https://i.ytimg.com/vi/pSX9DfrJkyk/hqdefault.jpg', 244, 9, 0, 0, '2026-06-13 13:34:58', '2017-12-26', 281, 92.2852, 0.0177, 0.3663, -17.5168, 'B', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5477a4ba-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5477a4ba-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5483fbc7-6616-11f1-9914-80ca5293d4d8', 'I Wonder If You Hurt Like Me', '2AM', '발라드', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=qexNZEMHhsM', 'qexNZEMHhsM', 'https://i.ytimg.com/vi/qexNZEMHhsM/hqdefault.jpg', 789, 13, 0, 0, '2026-06-13 13:35:03', '2012-03-12', 226, 129.1992, 0.0101, 0.422, -19.9625, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5483fbc7-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5483fbc7-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('548571d7-6616-11f1-9914-80ca5293d4d8', '천국 (My Heaven)', 'BIGBANG', '댄스', '00s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=Qf0gEZv07IE', 'Qf0gEZv07IE', 'https://i.ytimg.com/vi/Qf0gEZv07IE/hqdefault.jpg', 7194, 110, 0, 0, '2026-06-13 13:35:04', '2008-08-27', 232, 132.512, 0.0726, 0.4004, -11.3915, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '548571d7-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('548571d7-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5488eadb-6616-11f1-9914-80ca5293d4d8', 'Miniskirt (짧은 치마)', 'AOA', '댄스', '10s', '3세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=QLo6MnkdRN8', 'QLo6MnkdRN8', 'https://i.ytimg.com/vi/QLo6MnkdRN8/hqdefault.jpg', 65607, 1196, 0, 0, '2026-06-13 13:35:05', '2014-06-25', 187, 120.1853, 0.02, 0.4199, -16.9893, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5488eadb-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5488eadb-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('5488eadb-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('548b343c-6616-11f1-9914-80ca5293d4d8', 'Decalcomanie', 'MAMAMOO', '댄스', '10s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=QM8dOvGqKOA', 'QM8dOvGqKOA', 'https://i.ytimg.com/vi/QM8dOvGqKOA/hqdefault.jpg', 363, 13, 0, 0, '2026-06-13 13:35:06', '2016-11-07', 215, 114.8438, 0.028, 0.3913, -15.5221, 'B', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '548b343c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('548b343c-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('548b343c-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('549192ef-6616-11f1-9914-80ca5293d4d8', 'IT HURTS', '2NE1', 'R&B', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=qQSHJQp_h2c', 'qQSHJQp_h2c', 'https://i.ytimg.com/vi/qQSHJQp_h2c/hqdefault.jpg', 465, 9, 0, 0, '2026-06-13 13:35:09', '2010-10-31', 275, 147.6562, 0.0573, 0.481, -12.4184, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '549192ef-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('549192ef-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('549cef43-6616-11f1-9914-80ca5293d4d8', 'CAN''T NOBODY', '2NE1', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=R4_dRpohvgs', 'R4_dRpohvgs', 'https://i.ytimg.com/vi/R4_dRpohvgs/hqdefault.jpg', 1759, 80, 0, 0, '2026-06-13 13:33:22', '2011-06-08', 194, 132.512, 0.0195, 0.4659, -17.0917, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '549cef43-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('549cef43-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('549e8c31-6616-11f1-9914-80ca5293d4d8', 'DÉCALCOMANIE', 'MAMAMOO', 'R&B', '10s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=R79NSGts51U', 'R79NSGts51U', 'https://i.ytimg.com/vi/R79NSGts51U/hqdefault.jpg', 9752, 218, 0, 0, '2026-06-13 13:33:23', '2016-11-07', 217, 114.8438, 0.0135, 0.4039, -18.6974, 'B', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '549e8c31-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('549e8c31-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('549e8c31-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54a15e85-6616-11f1-9914-80ca5293d4d8', '어디에도', 'MC THE MAX', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=RCtzOaFu9Y8', 'RCtzOaFu9Y8', 'https://i.ytimg.com/vi/RCtzOaFu9Y8/hqdefault.jpg', 292077, 4567, 0, 0, '2026-06-13 13:33:24', '2008-02-01', 211, 129.1992, 0.0834, 0.4514, -10.7897, 'F#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54a15e85-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54a15e85-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54a24a5e-6616-11f1-9914-80ca5293d4d8', 'I''m The Best', '2NE1', '댄스', '10s', '2세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=RCxppqMpTs8', 'RCxppqMpTs8', 'https://i.ytimg.com/vi/RCxppqMpTs8/hqdefault.jpg', 11538, 238, 0, 0, '2026-06-13 13:33:25', '2011-07-28', 208, 123.0469, 0.0234, 0.4616, -16.3103, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54a24a5e-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54a24a5e-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('54a24a5e-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54ad72d0-6616-11f1-9914-80ca5293d4d8', '겁 (Fear)', 'MINO(송민호)', '힙합', '10s', '3세대', '외로움, 자신감', 'song', 'https://www.youtube.com/watch?v=Rn26ZdzDU-I', 'Rn26ZdzDU-I', 'https://i.ytimg.com/vi/Rn26ZdzDU-I/hqdefault.jpg', 16854, 302, 0, 0, '2026-06-13 13:33:29', '2015-08-22', 254, 89.1029, 0.0833, 0.3599, -10.7939, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54ad72d0-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54ad72d0-6616-11f1-9914-80ca5293d4d8', 'LONELY'), ('54ad72d0-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54aea068-6616-11f1-9914-80ca5293d4d8', 'Tell Me', '원더걸스', '댄스', '00s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=ROeO__uxi9c', 'ROeO__uxi9c', 'https://i.ytimg.com/vi/ROeO__uxi9c/hqdefault.jpg', 26140, 685, 0, 0, '2026-06-13 13:33:30', '2007-09-13', 205, 129.1992, 0.029, 0.4681, -15.3765, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54aea068-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54aea068-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54b7a7a9-6616-11f1-9914-80ca5293d4d8', 'Bo Peep Bo Peep', 'T-ARA', '미분류', '00s', '2세대', NULL, 'song', 'https://www.youtube.com/watch?v=RXWJQMJdGjQ', 'RXWJQMJdGjQ', 'https://i.ytimg.com/vi/RXWJQMJdGjQ/hqdefault.jpg', 7999, 195, 0, 0, '2026-06-13 13:33:33', '2009-11-27', 227, 126.048, 0.0135, 0.4259, -18.7084, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54b7a7a9-6616-11f1-9914-80ca5293d4d8';
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54ba5580-6616-11f1-9914-80ca5293d4d8', 'Bo Peep Bo Peep', '티아라 (T-ARA)', 'R&B', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=RZNZ2ebUqiI', 'RZNZ2ebUqiI', 'https://i.ytimg.com/vi/RZNZ2ebUqiI/hqdefault.jpg', 18493, 281, 0, 0, '2026-06-13 13:33:35', '2009-11-27', 192, 129.1992, 0.1006, 0.435, -9.9746, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54ba5580-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54ba5580-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('54ba5580-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54bb4636-6616-11f1-9914-80ca5293d4d8', '낙인', '임재범', '미분류', NULL, NULL, NULL, 'song', 'https://www.youtube.com/watch?v=rZpwaFGe618', 'rZpwaFGe618', 'https://i.ytimg.com/vi/rZpwaFGe618/hqdefault.jpg', 6318, 60, 0, 0, '2026-06-13 13:33:35', NULL, 274, 143.5547, 0.024, 0.4816, -16.1947, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54bb4636-6616-11f1-9914-80ca5293d4d8';
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54bd7ff2-6616-11f1-9914-80ca5293d4d8', 'BLUE MOON', '효린 & 창모', '댄스', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=s-e76UZXvC8', 's-e76UZXvC8', 'https://i.ytimg.com/vi/s-e76UZXvC8/hqdefault.jpg', 318126, 4063, 0, 0, '2026-06-13 13:33:36', '2017-04-14', 231, 126.048, 0.0781, 0.4436, -11.073, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54bd7ff2-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54bd7ff2-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54be33a6-6616-11f1-9914-80ca5293d4d8', '사랑..그 놈', '바비킴', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=S0BVeXIVBVE', 'S0BVeXIVBVE', 'https://i.ytimg.com/vi/S0BVeXIVBVE/hqdefault.jpg', 11746, 138, 0, 0, '2026-06-13 13:33:36', '2009-01-01', 267, 132.512, 0.0958, 0.4045, -10.1864, 'D', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54be33a6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54be33a6-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54bf02b4-6616-11f1-9914-80ca5293d4d8', 'UGLY', '2NE1', 'R&B', '10s', '2세대', '위로, 외로움', 'song', 'https://www.youtube.com/watch?v=S0wtn_x2IwU', 'S0wtn_x2IwU', 'https://i.ytimg.com/vi/S0wtn_x2IwU/hqdefault.jpg', 52223, 440, 0, 0, '2026-06-13 13:33:37', '2011-07-28', 262, 129.1992, 0.1104, 0.4173, -9.571, 'G#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54bf02b4-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('COMFORT', 'LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54bf02b4-6616-11f1-9914-80ca5293d4d8', 'COMFORT'), ('54bf02b4-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54cd2944-6616-11f1-9914-80ca5293d4d8', 'Gee', '소녀시대', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=sGmY-ZI8zKo', 'sGmY-ZI8zKo', 'https://i.ytimg.com/vi/sGmY-ZI8zKo/hqdefault.jpg', 73758, 1057, 0, 0, '2026-06-13 13:33:43', '2009-01-05', 199, 101.3327, 0.1032, 0.4082, -9.8615, 'C#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54cd2944-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54cd2944-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('54cd2944-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54d714a5-6616-11f1-9914-80ca5293d4d8', 'CRY CRY (Ballad Ver)', 'T-ARA', '발라드', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=sSDXSoKNE5c', 'sSDXSoKNE5c', 'https://i.ytimg.com/vi/sSDXSoKNE5c/hqdefault.jpg', 28663, 457, 0, 0, '2026-06-13 13:33:47', '2011-11-11', 204, 101.3327, 0.0153, 0.4252, -18.1394, 'D#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54d714a5-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54d714a5-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54d8b4f9-6616-11f1-9914-80ca5293d4d8', '맘마미아 (Mamma Mia)', 'KARA', '댄스', '10s', '3세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=sV8Wf5ala8s', 'sV8Wf5ala8s', 'https://i.ytimg.com/vi/sV8Wf5ala8s/hqdefault.jpg', 579, 42, 0, 0, '2026-06-13 13:33:48', '2014-08-18', 199, 129.1992, 0.0207, 0.4577, -16.846, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54d8b4f9-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54d8b4f9-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('54d8b4f9-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54daa3f2-6616-11f1-9914-80ca5293d4d8', 'Mr. Taxi (Korean Version)', 'Girls'' Generation (SNSD)', '댄스', '10s', '3세대', '신남, 자신감', 'song', 'https://www.youtube.com/watch?v=SX-YmJSa5k8', 'SX-YmJSa5k8', 'https://i.ytimg.com/vi/SX-YmJSa5k8/hqdefault.jpg', 12751, 290, 0, 0, '2026-06-13 13:33:48', '2011-10-19', 255, 123.0469, 0.1041, 0.3726, -9.8275, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54daa3f2-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54daa3f2-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('54daa3f2-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54dd556c-6616-11f1-9914-80ca5293d4d8', 'CAFE', 'BIGBANG', 'R&B', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=SxZ8Q0jBGGs', 'SxZ8Q0jBGGs', 'https://i.ytimg.com/vi/SxZ8Q0jBGGs/hqdefault.jpg', 93148, 547, 0, 0, '2026-06-13 13:33:49', '2011-02-24', 241, 105.4688, 0.1029, 0.4149, -9.8778, 'G#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54dd556c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54dd556c-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54e55111-6616-11f1-9914-80ca5293d4d8', 'The Boys', 'SNSD', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=tAaC_ejNpyI', 'tAaC_ejNpyI', 'https://i.ytimg.com/vi/tAaC_ejNpyI/hqdefault.jpg', 22618, 389, 0, 0, '2026-06-13 13:33:52', '2011-10-19', 232, 114.8438, 0.052, 0.3628, -12.8364, 'D', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54e55111-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54e55111-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54e9018f-6616-11f1-9914-80ca5293d4d8', 'LIES', 'T-ARA', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=tDxgyT5xqcQ', 'tDxgyT5xqcQ', 'https://i.ytimg.com/vi/tDxgyT5xqcQ/hqdefault.jpg', 16899, 310, 0, 0, '2026-06-13 13:33:53', '2009-07-29', 238, 103.3594, 0.0205, 0.4213, -16.8777, 'C#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54e9018f-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54e9018f-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54ebf406-6616-11f1-9914-80ca5293d4d8', 'Lonely', '2NE1', '발라드', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=THBgX_n_h0g', 'THBgX_n_h0g', 'https://i.ytimg.com/vi/THBgX_n_h0g/hqdefault.jpg', 57563, 563, 0, 0, '2026-06-13 13:33:55', '2011-06-09', 189, 126.048, 0.0709, 0.4188, -11.4928, 'F#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54ebf406-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54ebf406-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54ed8bd3-6616-11f1-9914-80ca5293d4d8', 'Hush', 'miss A', '댄스', '10s', '3세대', '자신감, 설렘', 'song', 'https://www.youtube.com/watch?v=Tkh3ypY28MM', 'Tkh3ypY28MM', 'https://i.ytimg.com/vi/Tkh3ypY28MM/hqdefault.jpg', 49790, 885, 0, 0, '2026-06-13 13:33:55', '2013-07-01', 189, 126.048, 0.0217, 0.4399, -16.637, 'C', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54ed8bd3-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54ed8bd3-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('54ed8bd3-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54f1c5e2-6616-11f1-9914-80ca5293d4d8', '자니', '프라이머리', 'R&B', '10s', '3세대', '신남', 'song', 'https://www.youtube.com/watch?v=TQg8kfKhxEs', 'TQg8kfKhxEs', 'https://i.ytimg.com/vi/TQg8kfKhxEs/hqdefault.jpg', 18734, 235, 0, 0, '2026-06-13 13:33:57', '2012-03-07', 185, 97.5088, 0.0868, 0.3799, -10.6165, 'G#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54f1c5e2-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54f1c5e2-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54f800ca-6616-11f1-9914-80ca5293d4d8', 'Oh!', 'Girls'' Generation', '댄스', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=TSVf3iKSWh0', 'TSVf3iKSWh0', 'https://i.ytimg.com/vi/TSVf3iKSWh0/hqdefault.jpg', 41471, 860, 0, 0, '2026-06-13 13:33:59', '2010-01-28', 223, 143.5547, 0.0197, 0.4995, -17.0655, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54f800ca-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54f800ca-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54fa5d86-6616-11f1-9914-80ca5293d4d8', 'My Way', 'MC THE MAX', 'OST', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=TVHKDORZyrk', 'TVHKDORZyrk', 'https://i.ytimg.com/vi/TVHKDORZyrk/hqdefault.jpg', 10731, 110, 0, 0, '2026-06-13 13:34:00', '2017-11-11', 269, 77.1339, 0.0597, 0.3071, -12.2417, 'A#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54fa5d86-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54fa5d86-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('54ffc08c-6616-11f1-9914-80ca5293d4d8', 'I AM THE BEST (내가 제일 잘 나가)', '2NE1', '댄스', '10s', '2세대', '자신감, 신남', 'song', 'https://www.youtube.com/watch?v=U-gAOJGhW7M', 'U-gAOJGhW7M', 'https://i.ytimg.com/vi/U-gAOJGhW7M/hqdefault.jpg', 1550, 44, 0, 0, '2026-06-13 13:34:02', '2011-07-28', 187, 156.6051, 0.0188, 0.5081, -17.2672, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '54ffc08c-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('54ffc08c-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT'), ('54ffc08c-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5506c044-6616-11f1-9914-80ca5293d4d8', 'WHERE U AT', '태양 (TAEYANG)', 'R&B', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=ue-W9O0Kejo', 'ue-W9O0Kejo', 'https://i.ytimg.com/vi/ue-W9O0Kejo/hqdefault.jpg', 18208, 166, 0, 0, '2026-06-13 13:34:05', '2010-07-01', 236, 151.9991, 0.0731, 0.4902, -11.361, 'A#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5506c044-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5506c044-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('550c39a9-6616-11f1-9914-80ca5293d4d8', '입술의 말', 'MC THE MAX', 'R&B', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=ukwRenaWOCA', 'ukwRenaWOCA', 'https://i.ytimg.com/vi/ukwRenaWOCA/hqdefault.jpg', 21925, 180, 0, 0, '2026-06-13 13:34:08', '2014-01-02', 281, 69.8374, 0.0669, 0.2966, -11.747, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '550c39a9-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('550c39a9-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('551260e6-6616-11f1-9914-80ca5293d4d8', '출첵', '다이나믹 듀오', '힙합', '10s', '3세대', '위로', 'song', 'https://www.youtube.com/watch?v=UqmdEL8iaB8', 'UqmdEL8iaB8', 'https://i.ytimg.com/vi/UqmdEL8iaB8/hqdefault.jpg', 19127, 241, 0, 0, '2026-06-13 13:34:10', '2013-06-13', 219, 112.3471, 0.0881, 0.3954, -10.5507, 'E', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '551260e6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('COMFORT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('551260e6-6616-11f1-9914-80ca5293d4d8', 'COMFORT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5517cda4-6616-11f1-9914-80ca5293d4d8', '그대 그대 그대', 'MC THE MAX', '발라드', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=UZYjzzLbt4Y', 'UZYjzzLbt4Y', 'https://i.ytimg.com/vi/UZYjzzLbt4Y/hqdefault.jpg', 26810, 221, 0, 0, '2026-06-13 13:34:12', '2016-10-07', 263, 143.5547, 0.0793, 0.4553, -11.0086, 'D#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5517cda4-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5517cda4-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('551dc775-6616-11f1-9914-80ca5293d4d8', '가끔', 'Crush', '댄스', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=vAQhOZr7HBM', 'vAQhOZr7HBM', 'https://i.ytimg.com/vi/vAQhOZr7HBM/hqdefault.jpg', 32233, 681, 0, 0, '2026-06-13 13:33:12', '2014-04-02', 238, 97.5088, 0.0642, 0.3909, -11.9256, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '551dc775-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('551dc775-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('55204862-6616-11f1-9914-80ca5293d4d8', '사랑을 외치다', 'MC THE MAX', 'R&B', '00s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=vbVFIpfEWhY', 'vbVFIpfEWhY', 'https://i.ytimg.com/vi/vbVFIpfEWhY/hqdefault.jpg', 13902, 141, 0, 0, '2026-06-13 13:33:13', '2007-10-26', 249, 67.9996, 0.0394, 0.3242, -14.049, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '55204862-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('55204862-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5522155e-6616-11f1-9914-80ca5293d4d8', 'Tell Me', 'Wonder Girls', '댄스', '00s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=VDv-G6M9bQY', 'VDv-G6M9bQY', 'https://i.ytimg.com/vi/VDv-G6M9bQY/hqdefault.jpg', 484, 18, 0, 0, '2026-06-13 13:33:14', '2007-09-13', 205, 129.1992, 0.0279, 0.4803, -15.5375, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5522155e-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5522155e-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5524cda7-6616-11f1-9914-80ca5293d4d8', 'I Don''t Care', '2NE1', 'R&B', '10s', '4세대', '자신감', 'song', 'https://www.youtube.com/watch?v=vFtcxXbytpM', 'vFtcxXbytpM', 'https://i.ytimg.com/vi/vFtcxXbytpM/hqdefault.jpg', 324501, 3339, 0, 0, '2026-06-13 13:33:15', '2010-05-04', 271, 63.8021, 0.0871, 0.3374, -10.5975, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5524cda7-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5524cda7-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5525a855-6616-11f1-9914-80ca5293d4d8', '다시 만난 세계', '소녀시대', '댄스', '00s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=vHvba26G4HI', 'vHvba26G4HI', 'https://i.ytimg.com/vi/vHvba26G4HI/hqdefault.jpg', 271019, 4909, 0, 0, '2026-06-13 13:33:16', '2007-08-02', 271, 103.3594, 0.0519, 0.37, -12.851, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5525a855-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5525a855-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5525a855-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('552a64eb-6616-11f1-9914-80ca5293d4d8', '바람기억', '나얼', '댄스', '10s', '2세대', '외로움', 'song', 'https://www.youtube.com/watch?v=vMAsSuiMAnI', 'vMAsSuiMAnI', 'https://i.ytimg.com/vi/vMAsSuiMAnI/hqdefault.jpg', 19646, 211, 0, 0, '2026-06-13 13:33:18', '2012-09-20', 229, 120.1853, 0.1203, 0.3864, -9.1962, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '552a64eb-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('552a64eb-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('552f21e1-6616-11f1-9914-80ca5293d4d8', 'TT', 'TWICE', '댄스', '10s', '3세대', '외로움, 설렘', 'song', 'https://www.youtube.com/watch?v=VQnZOZcjCnQ', 'VQnZOZcjCnQ', 'https://i.ytimg.com/vi/VQnZOZcjCnQ/hqdefault.jpg', 32818, 464, 0, 0, '2026-06-13 13:33:20', '2016-10-24', 481, 120.1853, 0.061, 0.4057, -12.1487, 'G', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '552f21e1-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY', 'EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('552f21e1-6616-11f1-9914-80ca5293d4d8', 'LONELY'), ('552f21e1-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5530e415-6616-11f1-9914-80ca5293d4d8', 'Love Shot', 'EXO', 'R&B', '10s', '3세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=VsRxe6BwYsg', 'VsRxe6BwYsg', 'https://i.ytimg.com/vi/VsRxe6BwYsg/hqdefault.jpg', 11117, 116, 0, 0, '2026-06-13 13:33:21', '2018-12-13', 225, 147.6562, 0.0933, 0.4822, -10.3033, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5530e415-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5530e415-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5530e415-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5532e318-6616-11f1-9914-80ca5293d4d8', 'With Me', '휘성', 'R&B', '00s', '1세대', '외로움', 'song', 'https://www.youtube.com/watch?v=VUEbnca4iEk', 'VUEbnca4iEk', 'https://i.ytimg.com/vi/VUEbnca4iEk/hqdefault.jpg', 410808, 3644, 0, 0, '2026-06-13 13:33:21', '2003-08-21', 239, 86.1328, 0.106, 0.3624, -9.7451, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5532e318-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5532e318-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('55388a28-6616-11f1-9914-80ca5293d4d8', 'Bo Peep Bo Peep', 'T-ARA', '댄스', '00s', '2세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=VWtWe9zEJQM', 'VWtWe9zEJQM', 'https://i.ytimg.com/vi/VWtWe9zEJQM/hqdefault.jpg', 6300, 118, 0, 0, '2026-06-13 13:32:06', '2009-11-27', 204, 129.1992, 0.0233, 0.4409, -16.3326, 'C#', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '55388a28-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('55388a28-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('55388a28-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('554868a9-6616-11f1-9914-80ca5293d4d8', 'Only One', 'BoA', 'R&B', '10s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=wBZsTVAhfRo', 'wBZsTVAhfRo', 'https://i.ytimg.com/vi/wBZsTVAhfRo/hqdefault.jpg', 137645, 1059, 0, 0, '2026-06-13 13:32:13', '2012-07-22', 214, 90.6661, 0.0752, 0.3886, -11.2397, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '554868a9-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('554868a9-6616-11f1-9914-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('554ac0b7-6616-11f1-9914-80ca5293d4d8', '너의 모든 순간', '성시경', 'OST', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=wCoztcI_9IM', 'wCoztcI_9IM', 'https://i.ytimg.com/vi/wCoztcI_9IM/hqdefault.jpg', 65681, 871, 0, 0, '2026-06-13 13:32:14', '2014-02-26', 174, 105.4688, 0.0686, 0.3991, -11.6345, 'C', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '554ac0b7-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('554ac0b7-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('554be96e-6616-11f1-9914-80ca5293d4d8', '숨 (Breath)', 'BEAST (비스트)', '댄스', '10s', '2세대', '외로움, 신남', 'song', 'https://www.youtube.com/watch?v=WCTlWC_pcVg', 'WCTlWC_pcVg', 'https://i.ytimg.com/vi/WCTlWC_pcVg/hqdefault.jpg', 2110, 46, 0, 0, '2026-06-13 13:32:15', '2010-09-30', 179, 129.1992, 0.0219, 0.4588, -16.5869, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '554be96e-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('LONELY', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('554be96e-6616-11f1-9914-80ca5293d4d8', 'LONELY'), ('554be96e-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('554ee8e1-6616-11f1-9914-80ca5293d4d8', 'Monster', 'EXO', '댄스', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=WgKhOpBPwbM', 'WgKhOpBPwbM', 'https://i.ytimg.com/vi/WgKhOpBPwbM/hqdefault.jpg', 20189, 314, 0, 0, '2026-06-13 13:32:16', '2016-05-30', 238, 151.9991, 0.1274, 0.4829, -8.9489, 'F', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '554ee8e1-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('554ee8e1-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('55508568-6616-11f1-9914-80ca5293d4d8', 'DINOSAUR + HEAVEN (Mashup)', 'AKMU & AVICII', '댄스', '20s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=WiNf7OlxK9M', 'WiNf7OlxK9M', 'https://i.ytimg.com/vi/WiNf7OlxK9M/hqdefault.jpg', 29028, 330, 0, 0, '2026-06-13 13:32:16', '2022-03-07', 252, 123.0469, 0.0715, 0.4765, -11.4573, 'D', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '55508568-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('55508568-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5551c1a2-6616-11f1-9914-80ca5293d4d8', 'HOLIDAY', 'T-ARA', '댄스', '10s', '2세대', '위로', 'song', 'https://www.youtube.com/watch?v=WlIcyq8aa3M', 'WlIcyq8aa3M', 'https://i.ytimg.com/vi/WlIcyq8aa3M/hqdefault.jpg', 3429, 104, 0, 0, '2026-06-13 13:32:17', '2012-09-04', 202, 112.3471, 0.0146, 0.4558, -18.3661, 'F', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5551c1a2-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('COMFORT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5551c1a2-6616-11f1-9914-80ca5293d4d8', 'COMFORT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('55539c1b-6616-11f1-9914-80ca5293d4d8', 'We Belong Together', 'BIGBANG', 'R&B', '00s', '2세대', '설렘, 위로', 'song', 'https://www.youtube.com/watch?v=wPnEGt77AJM', 'wPnEGt77AJM', 'https://i.ytimg.com/vi/wPnEGt77AJM/hqdefault.jpg', 32270, 363, 0, 0, '2026-06-13 13:32:18', '2006-08-29', 287, 139.6748, 0.0671, 0.4725, -11.7358, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '55539c1b-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'COMFORT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('55539c1b-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('55539c1b-6616-11f1-9914-80ca5293d4d8', 'COMFORT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('556169cc-6616-11f1-9914-80ca5293d4d8', 'As If It''s Your Last', 'BLACKPINK', '댄스', '10s', '3세대', '신남, 자신감', 'song', 'https://www.youtube.com/watch?v=w_RrQwPYN-M', 'w_RrQwPYN-M', 'https://i.ytimg.com/vi/w_RrQwPYN-M/hqdefault.jpg', 14887, 384, 0, 0, '2026-06-13 13:32:21', '2017-06-22', 202, 126.048, 0.1288, 0.4409, -8.8997, 'E', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '556169cc-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('ENERGETIC', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('556169cc-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC'), ('556169cc-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5567dc86-6616-11f1-9914-80ca5293d4d8', 'Abracadabra', 'Brown Eyed Girls', '댄스', '10s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=x59ZlunPKPM', 'x59ZlunPKPM', 'https://i.ytimg.com/vi/x59ZlunPKPM/hqdefault.jpg', 70231, 1156, 0, 0, '2026-06-13 13:32:24', '2010-04-06', 182, 129.1992, 0.0185, 0.4315, -17.3398, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5567dc86-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5567dc86-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('556e8a48-6616-11f1-9914-80ca5293d4d8', '다시 만난 세계 (Into The New World)', 'SNSD', '댄스', '00s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=XBz1XCZF9u0', 'XBz1XCZF9u0', 'https://i.ytimg.com/vi/XBz1XCZF9u0/hqdefault.jpg', 596, 9, 0, 0, '2026-06-13 13:32:26', '2007-08-02', 260, 114.8438, 0.0622, 0.4605, -12.0613, 'G#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '556e8a48-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('556e8a48-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('556e8a48-6616-11f1-9914-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('5570a6d1-6616-11f1-9914-80ca5293d4d8', 'Rollin''', '브레이브걸스', '댄스', '10s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=xcyXqNZazpQ', 'xcyXqNZazpQ', 'https://i.ytimg.com/vi/xcyXqNZazpQ/hqdefault.jpg', 44846, 431, 0, 0, '2026-06-13 13:32:28', '2017-03-07', 219, 126.048, 0.0739, 0.4283, -11.3129, 'D', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '5570a6d1-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('5570a6d1-6616-11f1-9914-80ca5293d4d8', 'EXCITED'), ('5570a6d1-6616-11f1-9914-80ca5293d4d8', 'ENERGETIC');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('557e42d6-6616-11f1-9914-80ca5293d4d8', 'ALL MINE', 'f(x)', '댄스', '10s', '3세대', '설렘', 'song', 'https://www.youtube.com/watch?v=xni4sUGRpbU', 'xni4sUGRpbU', 'https://i.ytimg.com/vi/xni4sUGRpbU/hqdefault.jpg', 118293, 1387, 0, 0, '2026-06-13 13:32:34', '2016-07-22', 199, 129.1992, 0.0787, 0.4585, -11.0425, 'B', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '557e42d6-6616-11f1-9914-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('557e42d6-6616-11f1-9914-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('926b0334-6beb-11f1-ad3a-80ca5293d4d8', '벌써 일년', '헤이즈 (Cover of 브라운아이즈)', 'R&B', '00s', '3세대', '외로움', 'song', 'https://www.youtube.com/watch?v=5SCd-G2S_ik', '5SCd-G2S_ik', 'https://i.ytimg.com/vi/5SCd-G2S_ik/hqdefault.jpg', 18083, 167, 0, 0, NULL, '2001-03-01', 201, 103.3594, 0.0133, 0.4462, -18.7718, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '926b0334-6beb-11f1-ad3a-80ca5293d4d8' AND mood_code NOT IN ('LONELY');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('926b0334-6beb-11f1-ad3a-80ca5293d4d8', 'LONELY');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('945c3604-6beb-11f1-ad3a-80ca5293d4d8', 'Abracadabra', 'Brown Eyed Girls', '댄스', '00s', '2세대', '자신감', 'song', 'https://www.youtube.com/watch?v=7vlKBqMseiw', '7vlKBqMseiw', 'https://i.ytimg.com/vi/7vlKBqMseiw/hqdefault.jpg', 503, 15, 0, 0, NULL, '2009-04-06', 182, 129.1992, 0.0181, 0.4283, -17.4328, 'G', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = '945c3604-6beb-11f1-ad3a-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('945c3604-6beb-11f1-ad3a-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('a4a8ad31-6beb-11f1-ad3a-80ca5293d4d8', '우리집 (My House)', '2PM', '댄스', '10s', '3세대', '자신감', 'song', 'https://www.youtube.com/watch?v=GXb3IpTOJrY', 'GXb3IpTOJrY', 'https://i.ytimg.com/vi/GXb3IpTOJrY/hqdefault.jpg', 4511, 134, 0, 0, NULL, '2015-06-15', 183, 178.2058, 0.0151, 0.5644, -18.2225, 'F#', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = 'a4a8ad31-6beb-11f1-ad3a-80ca5293d4d8' AND mood_code NOT IN ('CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('a4a8ad31-6beb-11f1-ad3a-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('a91018b8-6beb-11f1-ad3a-80ca5293d4d8', 'TIME TO LOVE', 'T-ARA & SUPERNOVA', '댄스', '10s', '2세대', '설렘', 'song', 'https://www.youtube.com/watch?v=J9sW_3beIdY', 'J9sW_3beIdY', 'https://i.ytimg.com/vi/J9sW_3beIdY/hqdefault.jpg', 118271, 1243, 0, 0, NULL, '2011-11-11', 211, 117.4538, 0.0235, 0.4811, -16.2934, 'A', 'minor', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = 'a91018b8-6beb-11f1-ad3a-80ca5293d4d8' AND mood_code NOT IN ('EXCITED');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('a91018b8-6beb-11f1-ad3a-80ca5293d4d8', 'EXCITED');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('c67f5c95-6beb-11f1-ad3a-80ca5293d4d8', '다시 만난 세계 (Into The New World)', '소녀시대', '댄스', '00s', '2세대', '설렘, 자신감', 'song', 'https://www.youtube.com/watch?v=y8O13_GIToA', 'y8O13_GIToA', 'https://i.ytimg.com/vi/y8O13_GIToA/hqdefault.jpg', 10074, 470, 0, 0, NULL, '2007-08-02', 258, 107.666, 0.0133, 0.443, -18.7704, 'F', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = 'c67f5c95-6beb-11f1-ad3a-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'CONFIDENT');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('c67f5c95-6beb-11f1-ad3a-80ca5293d4d8', 'EXCITED'), ('c67f5c95-6beb-11f1-ad3a-80ca5293d4d8', 'CONFIDENT');
+
+INSERT INTO songs (id, title, artist, genre, era, generation, mood, type, youtube_url, youtube_id, thumbnail_url, view_count, like_count, trend_score, score, score_updated_at, released_at, duration_seconds, bpm, energy, danceability, loudness, musical_key, musical_scale, is_analyzed) VALUES ('ca356040-6beb-11f1-ad3a-80ca5293d4d8', 'WE GO', '프로미스나인 (fromis_9)', '댄스', '20s', '3세대', '설렘, 신남', 'song', 'https://www.youtube.com/watch?v=zP1-ZYsZQqU', 'zP1-ZYsZQqU', 'https://i.ytimg.com/vi/zP1-ZYsZQqU/hqdefault.jpg', 274, 10, 0, 0, NULL, '2021-05-17', 189, 126.048, 0.015, 0.4929, -18.252, 'A', 'major', 1)
+ON DUPLICATE KEY UPDATE
+  title=VALUES(title), artist=VALUES(artist), genre=VALUES(genre), era=VALUES(era),
+  generation=VALUES(generation), mood=VALUES(mood), type=VALUES(type),
+  youtube_url=VALUES(youtube_url), youtube_id=VALUES(youtube_id),
+  thumbnail_url=VALUES(thumbnail_url), released_at=VALUES(released_at),
+  duration_seconds=VALUES(duration_seconds), bpm=VALUES(bpm), energy=VALUES(energy),
+  danceability=VALUES(danceability), loudness=VALUES(loudness),
+  musical_key=VALUES(musical_key), musical_scale=VALUES(musical_scale);
+DELETE FROM song_moods WHERE song_id = 'ca356040-6beb-11f1-ad3a-80ca5293d4d8' AND mood_code NOT IN ('EXCITED', 'ENERGETIC');
+INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES ('ca356040-6beb-11f1-ad3a-80ca5293d4d8', 'EXCITED'), ('ca356040-6beb-11f1-ad3a-80ca5293d4d8', 'ENERGETIC');
+
+COMMIT;
+
+-- ------------------------------------------------------------
+-- 2. youtube_id UNIQUE 제약 추가 (조건부 — 기존 DB에 중복이 없을 때만)
+--    송 upsert 이후 기준으로 점검한다. 중복이 있으면 SELECT 1만 실행되고
+--    UNIQUE는 추가되지 않으므로, 먼저 중복 목록을 사람이 정리한 뒤
+--    이 블록만 재실행하면 된다.
+-- ------------------------------------------------------------
+SET @dup_youtube_id_count = (
+  SELECT COUNT(*) FROM (
+    SELECT youtube_id FROM songs
+    WHERE youtube_id IS NOT NULL
+    GROUP BY youtube_id
+    HAVING COUNT(*) > 1
+  ) dup
+);
+
+SET @idx_exists = (
+  SELECT COUNT(*) FROM INFORMATION_SCHEMA.STATISTICS
+  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'songs' AND INDEX_NAME = 'uq_songs_youtube_id'
+);
+
+SET @sql = IF(@dup_youtube_id_count = 0 AND @idx_exists = 0,
+  'ALTER TABLE songs ADD UNIQUE KEY uq_songs_youtube_id (youtube_id)',
+  'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- 중복이 있었다면 아래로 목록을 확인하고 사람이 직접 정리할 것(자동 삭제 금지):
+-- SELECT youtube_id, GROUP_CONCAT(id) AS song_ids, COUNT(*) c
+-- FROM songs WHERE youtube_id IS NOT NULL GROUP BY youtube_id HAVING c > 1;
+
+-- ------------------------------------------------------------
+-- 3. docs/data/songs_2nd_3rd_conflicts.csv 의 6건은 여기 포함되지 않음.
+--    (Perhaps Love 1세대/2세대 세대충돌, Hot Summer/MOVIE 필드충돌 등)
+--    검토 후 곡별로 아래 패턴으로 개별 반영할 것:
+--    UPDATE songs SET generation = '<검증된 값>' WHERE id = '<해당 id>';
+-- ------------------------------------------------------------

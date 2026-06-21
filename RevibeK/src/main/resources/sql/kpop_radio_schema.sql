@@ -1,4 +1,3 @@
-``sql
 -- ============================================
 -- K-POP AI 라디오 서비스 — MySQL Schema + Mock Data
 -- 작성일: 2025-05-22
@@ -132,6 +131,10 @@ CREATE TABLE radio_sessions (
   dj_ment        TEXT        NULL     COMMENT 'Claude API 생성 DJ 멘트',
   comfort_text    TEXT        NULL     COMMENT 'AI 위로 메시지',
   novel_excerpt   TEXT        NULL     COMMENT '활용된 소설 구절',
+  tts_mode           VARCHAR(30)  NULL COMMENT 'GOOGLE_TTS | BROWSER_TTS, 생성 당시 합성 결과',
+  tts_audio_url      MEDIUMTEXT   NULL COMMENT 'Google TTS data URI(base64) 또는 정적 파일 URL. base64 오디오가 TEXT(64KB) 한도를 넘을 수 있어 MEDIUMTEXT 사용. browser/미생성이면 NULL',
+  tts_voice          VARCHAR(100) NULL COMMENT '합성에 사용된 voice 이름 (예: ko-KR-Chirp3-HD-Vindemiatrix)',
+  tts_audio_encoding VARCHAR(30)  NULL COMMENT '합성 오디오 인코딩 (예: MP3, LINEAR16)',
   playlist_id     CHAR(36)    NULL,
   created_at      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
@@ -461,17 +464,3 @@ FLUSH PRIVILEGES;
 
 USE kpop_radio;
 SHOW TABLES;
-```
-
-## 12. migration_add_radio_session_playlist_id.sql 전체 코드
-
-실제 경로: `src/main/resources/sql/migration_add_radio_session_playlist_id.sql`
-
-```sql
-ALTER TABLE radio_sessions
-  ADD COLUMN playlist_id CHAR(36) NULL;
-
-ALTER TABLE radio_sessions
-  ADD CONSTRAINT fk_radio_sessions_playlist
-  FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE SET NULL;
-```

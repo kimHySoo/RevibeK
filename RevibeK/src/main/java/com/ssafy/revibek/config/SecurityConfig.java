@@ -17,6 +17,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.ssafy.revibek.auth.JwtAuthenticationFilter;
+import com.ssafy.revibek.auth.OAuth2FailureHandler;
 import com.ssafy.revibek.auth.OAuth2SuccessHandler;
 
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
 
     @Value("${app.oauth.google.enabled:false}")
     private boolean googleOAuthEnabled;
@@ -84,6 +86,7 @@ public class SecurityConfig {
             http.oauth2Login(oauth2 -> oauth2
                 .redirectionEndpoint(redirection -> redirection.baseUri("/auth/google/callback"))
                 .successHandler(oAuth2SuccessHandler)
+                .failureHandler(oAuth2FailureHandler)
             );
         }
 
