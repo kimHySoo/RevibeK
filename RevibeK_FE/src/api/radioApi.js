@@ -4,6 +4,13 @@ import { buildMockRadio, mockRadioHistory } from "@/mocks/radio"
 const delay = (ms = 1400) => new Promise((r) => setTimeout(r, ms))
 const store = new Map()
 
+// Backend RadioResponseDto uses `id`, while the rest of the frontend
+// (store, components, router params) expects `radioSessionId`.
+function normalizeRadio(r) {
+  if (!r) return r
+  return { ...r, radioSessionId: r.radioSessionId ?? r.id }
+}
+
 // Build the request body that matches the backend RadioRequest DTO.
 // Only these fields are sent — extra UI-only fields like `title`,
 // `saveAsPlaylist`, `playlistTitle`, and `selectedSongs` are dropped.
@@ -49,7 +56,7 @@ export const radioApi = {
       return { ...rest, playlistId, songs: recommendedSongs }
     }
     const { data } = await api.get(`/playlists/${playlistId}`)
-    return data
+    return normalizeRadio(data)
   },
 
   async getById(id) {
@@ -66,7 +73,7 @@ export const radioApi = {
       return { ...rest, radioSessionId: id, songs: recommendedSongs }
     }
     const { data } = await api.get(`/radio/${id}`)
-    return data
+    return normalizeRadio(data)
   },
 
   async myHistory() {
@@ -75,7 +82,7 @@ export const radioApi = {
       return mockRadioHistory
     }
     const { data } = await api.get("/radio/me")
-    return data
+    return Array.isArray(data) ? data.map(normalizeRadio) : data
   },
 }
 
