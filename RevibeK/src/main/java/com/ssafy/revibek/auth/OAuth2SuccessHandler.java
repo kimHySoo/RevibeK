@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
@@ -16,6 +17,7 @@ import com.ssafy.revibek.user.service.AuthService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -49,7 +51,22 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
         String targetUrl = frontendRedirectUrl + "/oauth/callback#" + fragment;
 
         clearAuthenticationAttributes(request);
+        invalidateOAuth2Session(request);
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
+    }
+
+    // 프론트/백엔드가 같은 origin(docker의 nginx 리버스 프록시)일 때, oauth2Login()이
+    // 세션에 남겨둔 OAuth2AuthenticationToken(principal.getName() == Google sub)을 브라우저가
+    // 이후의 /api/users/me 같은 JWT 기반 요청에도 쿠키로 함께 보내버린다. JwtAuthenticationFilter는
+    // SecurityContext가 비어있을 때만 토큰을 해석하므로, 세션이 남아있으면 우리 DB의 user.id가 아니라
+    // Google sub 값이 인증 주체로 쓰여 "존재하지 않는 유저입니다" 500이 발생한다(docs/error/error08.md 3번).
+    // 이 앱은 로그인 직후부터 전부 JWT만 쓰므로 세션을 즉시 없애 재발을 막는다.
+    private void invalidateOAuth2Session(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session != null) {
+            session.invalidate();
+        }
+        SecurityContextHolder.clearContext();
     }
 
     private String encode(String value) {

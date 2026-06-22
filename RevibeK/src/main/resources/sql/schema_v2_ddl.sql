@@ -37,6 +37,9 @@ CREATE DATABASE IF NOT EXISTS kpop_radio_2
 
 USE kpop_radio_2;
 
+-- mysql 클라이언트가 latin1로 접속해 UTF-8 데이터를 이중 인코딩하는 문제 방지(docs/error/error08.md)
+SET NAMES utf8mb4;
+
 -- ============================================================
 -- 1. USERS (변경 없음)
 -- ============================================================

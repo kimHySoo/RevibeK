@@ -5,6 +5,24 @@ import { mockSongs } from "@/mocks/songs"
 const delay = (ms = 400) => new Promise((r) => setTimeout(r, ms))
 let local = JSON.parse(JSON.stringify(mockPlaylists))
 
+// Backend PlaylistDto/PlaylistItemDto use `id`/`name`, while the rest of the
+// frontend (store, components, router params) expects `playlistId`/`title`.
+// Normalize real API responses here so the mismatch doesn't leak upward.
+function normalizeItem(item) {
+  if (!item) return item
+  return { ...item, itemId: item.itemId ?? item.id }
+}
+
+function normalizePlaylist(pl) {
+  if (!pl) return pl
+  return {
+    ...pl,
+    playlistId: pl.playlistId ?? pl.id,
+    title: pl.title ?? pl.name,
+    items: Array.isArray(pl.items) ? pl.items.map(normalizeItem) : pl.items,
+  }
+}
+
 // Convert a generated radio result into a playlist-shaped object.
 export function radioToPlaylist(radio) {
   if (!radio) return null
@@ -31,7 +49,7 @@ export const playlistApi = {
       return local
     }
     const { data } = await api.get("/playlists")
-    return data
+    return Array.isArray(data) ? data.map(normalizePlaylist) : data
   },
 
   async getById(playlistId) {
@@ -40,7 +58,7 @@ export const playlistApi = {
       return local.find((p) => p.playlistId === playlistId) || null
     }
     const { data } = await api.get(`/playlists/${playlistId}`)
-    return data
+    return normalizePlaylist(data)
   },
 
   // Persist a generated radio result as a playlist (mock only — the real
@@ -72,7 +90,7 @@ export const playlistApi = {
       return pl
     }
     const { data } = await api.post("/playlists", { name: resolvedName, moodTag, isPublic })
-    return data
+    return normalizePlaylist(data)
   },
 
   // PUT /api/playlists/{id} — update name / moodTag / isPublic
@@ -88,7 +106,7 @@ export const playlistApi = {
       return pl ? { ...pl } : null
     }
     const { data } = await api.put(`/playlists/${playlistId}`, payload)
-    return data
+    return normalizePlaylist(data)
   },
 
   async addItem(playlistId, song) {
@@ -102,7 +120,7 @@ export const playlistApi = {
       return pl
     }
     const { data } = await api.post(`/playlists/${playlistId}/items`, song)
-    return data
+    return normalizeItem(data)
   },
 
   // Add many songs at once. Backend: POST /playlists/{id}/items/batch
@@ -137,7 +155,10 @@ export const playlistApi = {
     const { data } = await api.post(`/playlists/${playlistId}/items/batch`, {
       songIds,
     })
-    return data
+    return {
+      added: data?.added?.length ?? 0,
+      skipped: data?.skipped?.length ?? 0,
+    }
   },
 
   async removeItem(playlistId, itemId) {

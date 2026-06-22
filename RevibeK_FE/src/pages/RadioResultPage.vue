@@ -63,7 +63,10 @@ async function addAllToPlaylist() {
       data.value.playlistId,
       songIds
     )
-    batchMessage.value = `추가 ${result.added ?? 0}곡, 중복 ${result.skipped ?? 0}곡`
+    batchMessage.value =
+      result.added > 0
+        ? `추천곡 ${result.added}곡을 담았어요.`
+        : "추천곡이 이미 모두 플레이리스트에 담겨 있어요."
     ui.success(batchMessage.value)
   } catch {
     batchMessage.value = "추천곡 담기에 실패했어요. 다시 시도해주세요."
