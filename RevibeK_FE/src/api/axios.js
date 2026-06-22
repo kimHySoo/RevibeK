@@ -14,20 +14,23 @@ const api = axios.create({
   timeout: 200000,
 })
 
+// sessionStorage를 쓰는 이유: 탭/브라우저를 닫으면 로그아웃되고, 같은 탭에서의
+// 새로고침이나 SPA 내 라우팅 이동에는 로그인 상태가 유지되어야 하기 때문
+// (docs/answer/frontend_refact.md 참고).
 export function getAccessToken() {
-  return localStorage.getItem(TOKEN_KEYS.access)
+  return sessionStorage.getItem(TOKEN_KEYS.access)
 }
 export function getRefreshToken() {
-  return localStorage.getItem(TOKEN_KEYS.refresh)
+  return sessionStorage.getItem(TOKEN_KEYS.refresh)
 }
 export function setTokens({ accessToken, refreshToken }) {
-  if (accessToken) localStorage.setItem(TOKEN_KEYS.access, accessToken)
-  if (refreshToken) localStorage.setItem(TOKEN_KEYS.refresh, refreshToken)
+  if (accessToken) sessionStorage.setItem(TOKEN_KEYS.access, accessToken)
+  if (refreshToken) sessionStorage.setItem(TOKEN_KEYS.refresh, refreshToken)
 }
 export function clearTokens() {
-  localStorage.removeItem(TOKEN_KEYS.access)
-  localStorage.removeItem(TOKEN_KEYS.refresh)
-  localStorage.removeItem(TOKEN_KEYS.user)
+  sessionStorage.removeItem(TOKEN_KEYS.access)
+  sessionStorage.removeItem(TOKEN_KEYS.refresh)
+  sessionStorage.removeItem(TOKEN_KEYS.user)
 }
 
 // Request interceptor: attach access token
