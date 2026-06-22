@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -64,7 +65,7 @@ public class AnalysisServiceImpl implements AnalysisService {
 
         persistAnalyzedSong(song, response);
         if (response.getEmbedding() != null && !response.getEmbedding().isEmpty()) {
-            persistEmbeddingSong(song, response.getEmbedding().size());
+            persistEmbeddingSong(song, response.getEmbedding());
         }
         return response;
     }
@@ -97,14 +98,14 @@ public class AnalysisServiceImpl implements AnalysisService {
             .build());
     }
 
-    private void persistEmbeddingSong(SongDto song, int dimension) {
+    private void persistEmbeddingSong(SongDto song, List<Float> embedding) {
         embeddingSongDao.upsert(EmbeddingSongDto.builder()
             .songId(song.getId())
             .embeddingType(AUDIO_EMBEDDING_TYPE)
             .modelName("SongVectorUtil/FastAPI embedding_service")
-            .dimension(dimension)
+            .dimension(embedding.size())
             .sourceText(null)
-            .vectorFilePath(null)
+            .vector(embedding)
             .qdrantCollection(audioCollection)
             .qdrantPointId(song.getId())
             .isIndexed(false)

@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -21,7 +22,7 @@ public class EmbeddingSongDto {
     private String modelName;
     private int dimension;
     private String sourceText;
-    private String vectorFilePath;
+    private List<Float> vector;
     private String qdrantCollection;
     private String qdrantPointId;
     private boolean isIndexed;

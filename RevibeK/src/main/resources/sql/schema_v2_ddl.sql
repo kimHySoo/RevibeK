@@ -429,8 +429,8 @@ CREATE TABLE analyzed_songs (
 
 -- ------------------------------------------------------------
 -- embedding_songs (신규)
--- 곡별 embedding 메타데이터. 벡터 본체는 Qdrant가 source of truth이며
--- MySQL에는 모델명/차원/Qdrant 연결키만 저장한다(중복 저장 방지, 대용량 회피).
+-- 곡별 embedding 메타데이터 + 벡터 본체. MySQL이 단일 소스(source of truth)이고
+-- Qdrant는 색인 캐시다(answer16.md — 벡터가 로컬 파일/볼륨에만 있어 배포 시 깨지는 문제 해결).
 -- RevibeK_AI/song_embeddings/{songId}.json (model=text-embedding-3-small, 1536dim)
 -- 과 Spring Boot 9D 오디오 임베딩(SongVectorUtil, revibek_songs 컬렉션) 둘 다 기록 가능하도록
 -- embedding_type으로 구분한다.
@@ -442,7 +442,7 @@ CREATE TABLE embedding_songs (
   model_name        VARCHAR(100)  NOT NULL COMMENT '예: text-embedding-3-small, SongVectorUtil(internal)',
   dimension         INT           NOT NULL COMMENT '벡터 차원 (9, 1536 등)',
   source_text       TEXT          NULL     COMMENT 'TEXT 계열 임베딩 입력 원문 (제목+가수+장르 등)',
-  vector_file_path  VARCHAR(500)  NULL     COMMENT 'RevibeK_AI/song_embeddings/{songId}.json 등 원본 파일 경로 (벡터 자체는 MySQL에 저장하지 않음)',
+  vector            JSON          NOT NULL COMMENT '임베딩 벡터 배열 본체. 예: [0.0028, -0.0217, ...]',
   qdrant_collection VARCHAR(100)  NOT NULL COMMENT '예: revibek_songs, revibek_song_text_embeddings',
   qdrant_point_id   CHAR(36)      NOT NULL COMMENT 'Qdrant point id. 현재 정책상 songs.id(UUID)와 동일값',
   is_indexed        TINYINT(1)    NOT NULL DEFAULT 0 COMMENT 'Qdrant upsert 성공 여부',
@@ -454,4 +454,4 @@ CREATE TABLE embedding_songs (
   FOREIGN KEY (song_id) REFERENCES songs(id) ON DELETE CASCADE,
   INDEX idx_embedding_songs_collection (qdrant_collection),
   INDEX idx_embedding_songs_indexed (is_indexed)
-) ENGINE=InnoDB COMMENT='곡 embedding 메타데이터 (벡터 본체는 Qdrant, MySQL은 연결키/메타만 보관)';
+) ENGINE=InnoDB COMMENT='곡 embedding 메타데이터 + 벡터 본체 (MySQL이 단일 소스, Qdrant는 색인 캐시)';
