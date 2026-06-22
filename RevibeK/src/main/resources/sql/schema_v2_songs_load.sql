@@ -7,6 +7,9 @@
 
 USE kpop_radio_2;
 
+-- mysql 클라이언트가 latin1로 접속해 UTF-8 데이터를 이중 인코딩하는 문제 방지(docs/error/error08.md)
+SET NAMES utf8mb4;
+
 SET FOREIGN_KEY_CHECKS = 0;
 SET FOREIGN_KEY_CHECKS = 1;
 

@@ -24,6 +24,9 @@
 
 USE kpop_radio_2;
 
+-- mysql 클라이언트가 latin1로 접속해 UTF-8 데이터를 이중 인코딩하는 문제 방지(docs/error/error08.md)
+SET NAMES utf8mb4;
+
 INSERT IGNORE INTO embedding_songs (id, song_id, embedding_type, model_name, dimension, source_text, vector_file_path, qdrant_collection, qdrant_point_id, is_indexed, indexed_at, created_at, updated_at) VALUES ('9a7428e1-6d81-11f1-90e9-80ca5293d4d8','518328c5-6616-11f1-9914-80ca5293d4d8','TEXT_OPENAI','text-embedding-3-small',1536,'Psycho 레드벨벳 (Red Velvet) 미분류','RevibeK_AI/song_embeddings/518328c5-6616-11f1-9914-80ca5293d4d8.json','revibek_song_text_embeddings','518328c5-6616-11f1-9914-80ca5293d4d8',0,NULL,'2026-06-21 23:58:03','2026-06-21 23:58:03');
 INSERT IGNORE INTO embedding_songs (id, song_id, embedding_type, model_name, dimension, source_text, vector_file_path, qdrant_collection, qdrant_point_id, is_indexed, indexed_at, created_at, updated_at) VALUES ('9a76f12e-6d81-11f1-90e9-80ca5293d4d8','518f5198-6616-11f1-9914-80ca5293d4d8','TEXT_OPENAI','text-embedding-3-small',1536,'View SHINee 미분류','RevibeK_AI/song_embeddings/518f5198-6616-11f1-9914-80ca5293d4d8.json','revibek_song_text_embeddings','518f5198-6616-11f1-9914-80ca5293d4d8',0,NULL,'2026-06-21 23:58:03','2026-06-21 23:58:03');
 INSERT IGNORE INTO embedding_songs (id, song_id, embedding_type, model_name, dimension, source_text, vector_file_path, qdrant_collection, qdrant_point_id, is_indexed, indexed_at, created_at, updated_at) VALUES ('9a78673b-6d81-11f1-90e9-80ca5293d4d8','5190ba68-6616-11f1-9914-80ca5293d4d8','TEXT_OPENAI','text-embedding-3-small',1536,'Why Don\'t You Know 청하 미분류','RevibeK_AI/song_embeddings/5190ba68-6616-11f1-9914-80ca5293d4d8.json','revibek_song_text_embeddings','5190ba68-6616-11f1-9914-80ca5293d4d8',0,NULL,'2026-06-21 23:58:03','2026-06-21 23:58:03');
