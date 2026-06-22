@@ -1,29 +1,117 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper
-  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.ssafy.revibek.radio.mapper.RadioMapper">
 
-    <!-- 세션 저장 -->
-    <insert id="insertSession"
-        parameterType="com.ssafy.revibek.radio.dto.RadioRequestDto">
-        INSERT INTO radio_sessions (user_id, mood, story)
-        VALUES (#{userId}, #{mood}, #{story})
+    <!-- 세션 저장 (기본) -->
+    <insert id="insertRadioSession">
+        INSERT INTO radio_sessions (id, user_id, mood, story)
+        VALUES (#{id}, #{userId}, #{mood}, #{story})
     </insert>
 
-    <!-- 세션 조회 -->
-    <select id="selectSessionById" parameterType="string"
-        resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
-        SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+    <!-- 세션 저장 (DJ 멘트 포함) -->
+    <insert id="insertRadioSessionWithMent">
+        INSERT INTO radio_sessions (
+            id, user_id, mood, story, era, genre, situation,
+            desired_mood, video_type, preferred_artist,
+            excluded_keywords, recommendation_source, dj_ment
+        ) VALUES (
+            #{id}, #{userId}, #{mood}, #{story}, #{era}, #{genre}, #{situation},
+            #{desiredMood}, #{videoType}, #{preferredArtist},
+            #{excludedKeywords}, #{recommendationSource}, #{djMent}
+        )
+    </insert>
+
+    <!-- DJ 멘트 업데이트 -->
+    <update id="updateRadioSessionDjMent">
+        UPDATE radio_sessions
+        SET dj_ment = #{djMent}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <!-- 플레이리스트 ID 업데이트 -->
+    <update id="updateRadioSessionPlaylistId">
+        UPDATE radio_sessions
+        SET playlist_id = #{playlistId}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <!-- TTS 합성 결과 업데이트 (라디오 생성 직후 1회, 조회 시에는 재호출하지 않음) -->
+    <update id="updateRadioSessionTts">
+        UPDATE radio_sessions
+        SET tts_mode           = #{ttsMode},
+            tts_audio_url      = #{ttsAudioUrl},
+            tts_voice          = #{ttsVoice},
+            tts_audio_encoding = #{ttsAudioEncoding}
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <!-- 세션 단건 조회 (TTS 정보를 tts 객체로 매핑) -->
+    <resultMap id="radioSessionWithTtsMap" type="com.ssafy.revibek.radio.dto.RadioResponseDto" autoMapping="true">
+        <id property="id" column="id"/>
+        <!-- tts_mode가 NULL이면(과거 세션/TTS 미생성) tts 자체를 null로 두고, RadioService에서 djMent 기반 브라우저 fallback으로 보강한다 -->
+        <association property="tts" javaType="com.ssafy.revibek.radio.dto.TtsFallbackResponseDto"
+                      notNullColumn="tts_mode">
+            <result property="mode" column="tts_mode"/>
+            <result property="audioUrl" column="tts_audio_url"/>
+        </association>
+    </resultMap>
+
+    <select id="selectRadioSessionByIdAndUserId"
+            resultMap="radioSessionWithTtsMap">
+        SELECT
+            id,
+            playlist_id,
+            mood,
+            story,
+            era,
+            genre,
+            situation,
+            desired_mood,
+            video_type,
+            preferred_artist,
+            excluded_keywords,
+            recommendation_source,
+            dj_ment,
+            comfort_text,
+            novel_excerpt,
+            tts_mode,
+            tts_audio_url,
+            is_public,
+            published_at,
+            created_at
         FROM radio_sessions
         WHERE id = #{id}
+          AND user_id = #{userId}
     </select>
 
     <!-- 유저의 세션 목록 -->
-    <select id="selectSessionsByUserId" parameterType="string"
-        resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
-        SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+    <select id="selectRadioSessionByUserId" parameterType="string"
+            resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
+        SELECT
+            id,
+            playlist_id,
+            mood,
+            story,
+            era,
+            genre,
+            situation,
+            desired_mood,
+            video_type,
+            preferred_artist,
+            excluded_keywords,
+            recommendation_source,
+            dj_ment,
+            is_public,
+            published_at,
+            comfort_text,
+            novel_excerpt,
+            created_at
         FROM radio_sessions
         WHERE user_id = #{userId}
         ORDER BY created_at DESC
@@ -36,9 +124,122 @@
     </insert>
 
     <!-- 세션별 추천곡 조회 -->
-    <select id="selectRecommendationsBySessionId" parameterType="string"
-        resultType="com.ssafy.revibek.radio.dto.RadioResponseDto$RadioSongDto">
-        SELECT rr.song_id, s.title, s.artist, rr.order_num, rr.reason
+    <select id="selectRecommendationBySessionId" parameterType="string"
+            resultType="com.ssafy.revibek.radio.dto.RadioResponseDto$RadioSongDto">
+        SELECT
+            rr.song_id,
+            s.title,
+            s.artist,
+            rr.order_num AS orderNum,
+            rr.reason
+        FROM radio_recommendations rr
+        JOIN songs s ON s.id = rr.song_id
+        WHERE rr.session_id = #{sessionId}
+        ORDER BY rr.order_num
+    </select>
+
+    <!-- 공개/비공개 전환 -->
+    <update id="updateRadioSessionPublic">
+        UPDATE radio_sessions
+        SET is_public    = #{isPublic},
+            published_at = CASE
+                               WHEN #{isPublic} = true THEN NOW()
+                               ELSE NULL
+                           END
+        WHERE id      = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <!-- 공개 상태 단건 조회 -->
+    <select id="selectRadioPublicStatus"
+            resultType="com.ssafy.revibek.radio.dto.RadioPublicToggleResponseDto">
+        SELECT
+            id           AS radioSessionId,
+            is_public    AS isPublic,
+            published_at AS publishedAt
+        FROM radio_sessions
+        WHERE id      = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <!-- 공개 라디오 피드 목록 -->
+    <select id="selectPublicRadioSessions"
+            resultType="com.ssafy.revibek.radio.dto.PublicRadioFeedDto">
+        SELECT
+            rs.id           AS radioSessionId,
+            rs.user_id      AS userId,
+            u.nickname      AS userNickname,
+            CONCAT(
+                COALESCE(rs.mood, '감성'),
+                CASE WHEN rs.situation IS NOT NULL AND rs.situation != ''
+                     THEN CONCAT(' · ', rs.situation)
+                     ELSE '' END,
+                ' 라디오'
+            )               AS title,
+            rs.story,
+            rs.mood,
+            rs.situation,
+            rs.era          AS generation,
+            rs.dj_ment      AS djComment,
+            rs.is_public    AS isPublic,
+            rs.published_at AS publishedAt,
+            COUNT(rl.user_id) AS likeCount
+        FROM radio_sessions rs
+        JOIN users u ON u.id = rs.user_id
+        LEFT JOIN radio_likes rl ON rl.radio_session_id = rs.id
+        WHERE rs.is_public = true
+        GROUP BY rs.id, rs.user_id, u.nickname, rs.story, rs.mood,
+                 rs.situation, rs.era, rs.dj_ment, rs.is_public, rs.published_at
+        <choose>
+            <when test="sort == 'popular'">
+                ORDER BY likeCount DESC, rs.published_at DESC
+            </when>
+            <otherwise>
+                ORDER BY rs.published_at DESC
+            </otherwise>
+        </choose>
+    </select>
+
+    <!-- 공개 라디오 피드 상세 -->
+    <select id="selectPublicRadioSessionById"
+            resultType="com.ssafy.revibek.radio.dto.PublicRadioFeedDto">
+        SELECT
+            rs.id           AS radioSessionId,
+            rs.user_id      AS userId,
+            u.nickname      AS userNickname,
+            CONCAT(
+                COALESCE(rs.mood, '감성'),
+                CASE WHEN rs.situation IS NOT NULL AND rs.situation != ''
+                     THEN CONCAT(' · ', rs.situation)
+                     ELSE '' END,
+                ' 라디오'
+            )               AS title,
+            rs.story,
+            rs.mood,
+            rs.situation,
+            rs.era          AS generation,
+            rs.dj_ment      AS djComment,
+            rs.is_public    AS isPublic,
+            rs.published_at AS publishedAt,
+            COUNT(rl.user_id) AS likeCount
+        FROM radio_sessions rs
+        JOIN users u ON u.id = rs.user_id
+        LEFT JOIN radio_likes rl ON rl.radio_session_id = rs.id
+        WHERE rs.id = #{id}
+          AND rs.is_public = true
+        GROUP BY rs.id, rs.user_id, u.nickname, rs.story, rs.mood,
+                 rs.situation, rs.era, rs.dj_ment, rs.is_public, rs.published_at
+    </select>
+
+    <!-- 공개 라디오 추천곡 조회 -->
+    <select id="selectPublicRecommendedSongs"
+            resultType="com.ssafy.revibek.radio.dto.PublicRadioSongDto">
+        SELECT
+            rr.song_id                        AS songId,
+            s.title,
+            s.artist,
+            COALESCE(s.generation, s.era)     AS generation,
+            s.genre
         FROM radio_recommendations rr
         JOIN songs s ON s.id = rr.song_id
         WHERE rr.session_id = #{sessionId}

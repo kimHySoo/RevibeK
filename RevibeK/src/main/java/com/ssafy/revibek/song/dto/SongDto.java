@@ -19,18 +19,29 @@ import java.time.LocalDateTime;
 public class SongDto {
 
     private String id;
-    private String title; 
+    private String title;
     private String artist;
     private String genre;
-    private String era; 
+    private String era;
     private String type;
     private String youtubeUrl;
     private String youtubeId;
     private int viewCount;
     private int likeCount;
-    private float trendScore;
-    private float score;
-    private LocalDateTime scoreUpdatedAt;
     private LocalDate releasedAt;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+    private String generation;
+    private String mood;
+    private String thumbnailUrl;
+    private Integer durationSeconds;
+    private Double bpm;
+    private Double energy;
+    private Double danceability;
+    private Double loudness;
+    private String musicalKey;
+    private String musicalScale;
+    private Double spectralCentroid;
+    private Double zeroCrossingRate;
+    private int isAnalyzed;
 }

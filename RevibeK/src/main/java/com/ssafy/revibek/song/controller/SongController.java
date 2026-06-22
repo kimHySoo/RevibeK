@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.service.SongService;
+import com.ssafy.revibek.song.service.TitleArtistParsingService;
+import com.ssafy.revibek.spotify.service.SpotifyService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,6 +31,12 @@ public class SongController {
 
     @Autowired
     private SongService songService;
+
+    @Autowired
+    private TitleArtistParsingService titleArtistParsingService;
+
+    @Autowired
+    private SpotifyService spotifyService;
 
     // 노래 등록
     @PostMapping
@@ -77,10 +85,8 @@ public class SongController {
     public ResponseEntity<?> getSongByTitle(
             @RequestParam @Parameter(description = "검색할 노래 제목") String title) {
         try {
-            SongDto song = songService.getSongByTitle(title);
-            if (song != null)
-                return ResponseEntity.ok(song);
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("노래를 찾을 수 없습니다.");
+            List<SongDto> songs = songService.getSongByTitle(title);
+            return ResponseEntity.ok(songs);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }
@@ -123,6 +129,41 @@ public class SongController {
             if (result > 0)
                 return ResponseEntity.ok("노래 수정 성공");
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("노래 수정 실패");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    // 미분류 곡 제목/아티스트 분리 (GPT)
+    @PostMapping("/parse-titles")
+    @Operation(summary = "곡 제목/아티스트 분리", description = "artist가 '미분류'인 곡의 title을 GPT로 분석해 곡 제목과 아티스트로 분리합니다. (조회 실패 시 현상태 유지)")
+    public ResponseEntity<?> parseTitles() {
+        try {
+            int count = titleArtistParsingService.splitUnclassifiedTitles();
+            return ResponseEntity.ok(count + "개 곡의 제목/아티스트를 분리했습니다.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    // 1회용 디버그: GPT 응답 원본 확인
+    @GetMapping("/parse-titles/debug")
+    @Operation(summary = "제목/아티스트 분리 디버그", description = "artist='미분류'인 곡 1개로 GPT 호출 후 원본 응답을 그대로 반환합니다.")
+    public ResponseEntity<?> debugParseTitle() {
+        try {
+            return ResponseEntity.ok(titleArtistParsingService.debugParseOne());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
+    // era='미분류'인 곡의 era/generation/released_at 채우기 (Spotify)
+    @PostMapping("/fill-era-generation")
+    @Operation(summary = "발매연도 기반 era/generation 채우기", description = "era='미분류'인 곡을 Spotify에서 검색해 발매일 기준으로 era, generation, released_at을 채웁니다. (검색 실패 시 현상태 유지)")
+    public ResponseEntity<?> fillEraGeneration() {
+        try {
+            int count = spotifyService.fillEraGeneration();
+            return ResponseEntity.ok(count + "개 곡의 era/generation을 채웠습니다.");
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
         }

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.playlist.mapper.PlaylistMapper">
+
+    <resultMap id="PlaylistResultMap" type="com.ssafy.revibek.playlist.dto.PlaylistDto">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="name" column="name"/>
+        <result property="moodTag" column="mood_tag"/>
+        <result property="isPublic" column="is_public"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="PlaylistItemResultMap" type="com.ssafy.revibek.playlist.dto.PlaylistItemDto">
+        <id property="id" column="id"/>
+        <result property="playlistId" column="playlist_id"/>
+        <result property="songId" column="song_id"/>
+        <result property="title" column="title"/>
+        <result property="artist" column="artist"/>
+        <result property="genre" column="genre"/>
+        <result property="era" column="era"/>
+        <result property="youtubeUrl" column="youtube_url"/>
+        <result property="youtubeId" column="youtube_id"/>
+        <result property="orderNum" column="order_num"/>
+        <result property="addedAt" column="added_at"/>
+    </resultMap>
+
+    <insert id="insertPlaylist" parameterType="com.ssafy.revibek.playlist.dto.PlaylistDto">
+        INSERT INTO playlists (
+            id,
+            user_id,
+            name,
+            mood_tag,
+            is_public
+        ) VALUES (
+            #{id},
+            #{userId},
+            #{name},
+            #{moodTag},
+            #{isPublic}
+        )
+    </insert>
+
+    <select id="selectPlaylistsByUserId" resultMap="PlaylistResultMap">
+        SELECT
+            id,
+            user_id,
+            name,
+            mood_tag,
+            is_public,
+            created_at
+        FROM playlists
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectPlaylistByIdAndUserId" resultMap="PlaylistResultMap">
+        SELECT
+            id,
+            user_id,
+            name,
+            mood_tag,
+            is_public,
+            created_at
+        FROM playlists
+        WHERE id = #{playlistId}
+          AND user_id = #{userId}
+    </select>
+
+    <delete id="deletePlaylist">
+        DELETE FROM playlists
+        WHERE id = #{playlistId}
+          AND user_id = #{userId}
+    </delete>
+
+    <select id="countPlaylistItem" resultType="int">
+        SELECT COUNT(1)
+        FROM playlist_songs
+        WHERE playlist_id = #{playlistId}
+          AND song_id = #{songId}
+    </select>
+
+    <select id="selectNextOrderNum" resultType="int">
+        SELECT COALESCE(MAX(order_num), 0) + 1
+        FROM playlist_songs
+        WHERE playlist_id = #{playlistId}
+    </select>
+
+    <insert id="insertPlaylistItem">
+        INSERT INTO playlist_songs (
+            playlist_id,
+            song_id,
+            order_num
+        ) VALUES (
+            #{playlistId},
+            #{songId},
+            #{orderNum}
+        )
+    </insert>
+
+    <select id="selectPlaylistItems" resultMap="PlaylistItemResultMap">
+        SELECT
+            ps.id,
+            ps.playlist_id,
+            ps.song_id,
+            s.title,
+            s.artist,
+            s.genre,
+            s.era,
+            s.youtube_url,
+            s.youtube_id,
+            ps.order_num,
+            ps.added_at
+        FROM playlist_songs ps
+        JOIN songs s ON s.id = ps.song_id
+        WHERE ps.playlist_id = #{playlistId}
+        ORDER BY ps.order_num ASC, ps.added_at ASC
+    </select>
+
+    <delete id="deletePlaylistItem">
+        DELETE FROM playlist_songs
+        WHERE playlist_id = #{playlistId}
+          AND id = #{itemId}
+    </delete>
+
+    <update id="updatePlaylist">
+        UPDATE playlists
+        SET name      = #{name},
+            mood_tag  = #{moodTag},
+            is_public = #{isPublic}
+        WHERE id      = #{playlistId}
+          AND user_id = #{userId}
+    </update>
+
+</mapper>

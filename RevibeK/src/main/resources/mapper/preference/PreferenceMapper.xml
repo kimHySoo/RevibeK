@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.preference.mapper.PreferenceMapper">
+
+    <resultMap id="UserPreferenceResultMap" type="com.ssafy.revibek.preference.dto.UserPreferenceDto">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="preferredGenerationsJson" column="preferred_generations"/>
+        <result property="preferredMoodsJson" column="preferred_moods"/>
+        <result property="preferredArtistsJson" column="preferred_artists"/>
+        <result property="preferredGenresJson" column="preferred_genres"/>
+        <result property="preferredVideoTypesJson" column="preferred_video_types"/>
+        <result property="excludedGenresJson" column="excluded_genres"/>
+        <result property="excludedKeywordsJson" column="excluded_keywords"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="upsertUserPreference" parameterType="com.ssafy.revibek.preference.dto.UserPreferenceDto">
+        INSERT INTO user_preferences (
+            id,
+            user_id,
+            preferred_generations,
+            preferred_moods,
+            preferred_artists,
+            preferred_genres,
+            preferred_video_types,
+            excluded_genres,
+            excluded_keywords
+        ) VALUES (
+            #{id},
+            #{userId},
+            #{preferredGenerationsJson},
+            #{preferredMoodsJson},
+            #{preferredArtistsJson},
+            #{preferredGenresJson},
+            #{preferredVideoTypesJson},
+            #{excludedGenresJson},
+            #{excludedKeywordsJson}
+        )
+        ON DUPLICATE KEY UPDATE
+            preferred_generations = VALUES(preferred_generations),
+            preferred_moods = VALUES(preferred_moods),
+            preferred_artists = VALUES(preferred_artists),
+            preferred_genres = VALUES(preferred_genres),
+            preferred_video_types = VALUES(preferred_video_types),
+            excluded_genres = VALUES(excluded_genres),
+            excluded_keywords = VALUES(excluded_keywords)
+    </insert>
+
+    <select id="selectByUserId" resultMap="UserPreferenceResultMap">
+        SELECT
+            id,
+            user_id,
+            preferred_generations,
+            preferred_moods,
+            preferred_artists,
+            preferred_genres,
+            preferred_video_types,
+            excluded_genres,
+            excluded_keywords,
+            created_at,
+            updated_at
+        FROM user_preferences
+        WHERE user_id = #{userId}
+    </select>
+
+    <delete id="deleteByUserId">
+        DELETE FROM user_preferences
+        WHERE user_id = #{userId}
+    </delete>
+
+</mapper>

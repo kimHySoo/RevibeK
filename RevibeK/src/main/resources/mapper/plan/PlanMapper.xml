@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.plan.mapper.PlanMapper">
+
+    <resultMap id="PlanResponseMap" type="com.ssafy.revibek.plan.dto.PlanResponseDto">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="title" column="title"/>
+        <result property="description" column="description"/>
+        <result property="planDate" column="plan_date"/>
+        <result property="planType" column="plan_type"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertPlan">
+        INSERT INTO plans (id, user_id, title, description, plan_date, plan_type)
+        VALUES (#{id}, #{userId}, #{title}, #{description}, #{planDate}, #{planType})
+    </insert>
+
+    <select id="selectPlansByUserId" resultMap="PlanResponseMap">
+        SELECT id, user_id, title, description, plan_date, plan_type, created_at, updated_at
+        FROM plans
+        WHERE user_id = #{userId}
+        ORDER BY plan_date DESC, created_at DESC
+    </select>
+
+    <select id="selectPlanById" resultMap="PlanResponseMap">
+        SELECT id, user_id, title, description, plan_date, plan_type, created_at, updated_at
+        FROM plans
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <update id="updatePlan">
+        UPDATE plans
+        SET title       = #{title},
+            description = #{description},
+            plan_date   = #{planDate},
+            plan_type   = #{planType}
+        WHERE id      = #{id}
+          AND user_id = #{userId}
+    </update>
+
+    <delete id="deletePlan">
+        DELETE FROM plans
+        WHERE id      = #{id}
+          AND user_id = #{userId}
+    </delete>
+
+</mapper>

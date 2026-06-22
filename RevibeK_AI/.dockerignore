@@ -1,0 +1,9 @@
+.venv
+__pycache__
+**/__pycache__
+downloads/*
+!downloads/.gitkeep
+song_embeddings/*
+!song_embeddings/.gitkeep
+test
+.git

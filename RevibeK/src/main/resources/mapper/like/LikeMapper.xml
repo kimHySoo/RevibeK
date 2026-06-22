@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.like.mapper.LikeMapper">
+
+    <resultMap id="LikeResultMap" type="com.ssafy.revibek.like.dto.LikeDto">
+        <id property="id" column="id"/>
+        <result property="userId" column="user_id"/>
+        <result property="songId" column="song_id"/>
+        <result property="createdAt" column="created_at"/>
+    </resultMap>
+
+    <resultMap id="LikedSongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
+        <id property="id" column="id"/>
+        <result property="title" column="title"/>
+        <result property="artist" column="artist"/>
+        <result property="genre" column="genre"/>
+        <result property="era" column="era"/>
+        <result property="generation" column="generation"/>
+        <result property="mood" column="mood"/>
+        <result property="type" column="type"/>
+        <result property="youtubeUrl" column="youtube_url"/>
+        <result property="youtubeId" column="youtube_id"/>
+        <result property="thumbnailUrl" column="thumbnail_url"/>
+        <result property="viewCount" column="view_count"/>
+        <result property="likeCount" column="like_count"/>
+        <result property="releasedAt" column="released_at"/>
+        <result property="createdAt" column="created_at"/>
+        <result property="updatedAt" column="updated_at"/>
+    </resultMap>
+
+    <insert id="insertLike">
+        INSERT IGNORE INTO song_likes (
+            user_id,
+            song_id
+        ) VALUES (
+            #{userId},
+            #{songId}
+        )
+    </insert>
+
+    <delete id="deleteLike">
+        DELETE FROM song_likes
+        WHERE user_id = #{userId}
+          AND song_id = #{songId}
+    </delete>
+
+    <select id="existsLike" resultType="int">
+        SELECT COUNT(1)
+        FROM song_likes
+        WHERE user_id = #{userId}
+          AND song_id = #{songId}
+    </select>
+
+    <select id="countLikesBySongId" resultType="int">
+        SELECT COUNT(1)
+        FROM song_likes
+        WHERE song_id = #{songId}
+    </select>
+
+    <select id="selectLikesByUserId" resultMap="LikeResultMap">
+        SELECT
+            id,
+            user_id,
+            song_id,
+            created_at
+        FROM song_likes
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <select id="selectLikedSongsByUserId" resultMap="LikedSongResultMap">
+        SELECT
+            s.id,
+            s.title,
+            s.artist,
+            s.genre,
+            s.era,
+            s.generation,
+            s.mood,
+            s.type,
+            s.youtube_url,
+            s.youtube_id,
+            s.thumbnail_url,
+            s.view_count,
+            s.like_count,
+            s.released_at,
+            s.created_at,
+            s.updated_at
+        FROM song_likes sl
+        JOIN songs s ON s.id = sl.song_id
+        WHERE sl.user_id = #{userId}
+        ORDER BY sl.created_at DESC
+    </select>
+
+    <update id="increaseSongLikeCount">
+        UPDATE songs
+        SET like_count = like_count + 1
+        WHERE id = #{songId}
+    </update>
+
+    <update id="decreaseSongLikeCount">
+        UPDATE songs
+        SET like_count = GREATEST(like_count - 1, 0)
+        WHERE id = #{songId}
+    </update>
+
+</mapper>

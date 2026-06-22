@@ -6,15 +6,48 @@
 
 # Maven 빌드 결과물
 target/
+bin/
 
-# IDE
+# Node / Vite 프론트엔드
+node_modules/
+dist/
+
+# 로그
+*.log
+
+# IntelliJ
 .idea/
 *.iml
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual Environment
+.venv/
+venv/
+
+#docs
+Revibek/docs/
+Revibek/scripts/
+
+
+# Downloads
+RevibeK_AI/downloads/
+RevibeK_AI/backup/
+RevibeK_AI/song_embeddings/
+/downloads/
 
 # 환경변수 / 민감한 정보
 application-secret.properties
 .env
 
+# Jupyter
+.ipynb_checkpoints/
+
 # OS
 .DS_Store
 Thumbs.db
+
+.claude
+/docs

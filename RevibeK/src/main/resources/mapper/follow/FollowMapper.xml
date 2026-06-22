@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.follow.mapper.FollowMapper">
+
+    <select id="countFollow" resultType="int">
+        SELECT COUNT(1)
+        FROM follows
+        WHERE follower_id = #{followerId}
+          AND followee_id = #{followeeId}
+    </select>
+
+    <insert id="insertFollow">
+        INSERT INTO follows (follower_id, followee_id)
+        VALUES (#{followerId}, #{followeeId})
+    </insert>
+
+    <delete id="deleteFollow">
+        DELETE FROM follows
+        WHERE follower_id = #{followerId}
+          AND followee_id = #{followeeId}
+    </delete>
+
+    <!-- 내가 팔로우하는 목록 (팔로잉) -->
+    <select id="selectFollowings"
+            resultType="com.ssafy.revibek.follow.dto.FollowDto">
+        SELECT u.id AS userId, u.nickname, f.created_at AS followedAt
+        FROM follows f
+        JOIN users u ON u.id = f.followee_id
+        WHERE f.follower_id = #{userId}
+        ORDER BY f.created_at DESC
+    </select>
+
+    <!-- 나를 팔로우하는 목록 (팔로워) -->
+    <select id="selectFollowers"
+            resultType="com.ssafy.revibek.follow.dto.FollowDto">
+        SELECT u.id AS userId, u.nickname, f.created_at AS followedAt
+        FROM follows f
+        JOIN users u ON u.id = f.follower_id
+        WHERE f.followee_id = #{userId}
+        ORDER BY f.created_at DESC
+    </select>
+
+</mapper>

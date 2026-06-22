@@ -1,109 +1,371 @@
-<?xml version="1.0" encoding="UTF-8" ?>
-<!DOCTYPE mapper
-  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
-  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 
 <mapper namespace="com.ssafy.revibek.song.mapper.SongDao">
 
-
-    <!-- ResultMap — DB 컬럼 ↔ DTO 필드 매핑 -->
-	<resultMap id="SongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
+    <resultMap id="SongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
         <id     property="id"              column="id"/>
         <result property="title"           column="title"/>
         <result property="artist"          column="artist"/>
         <result property="genre"           column="genre"/>
         <result property="era"             column="era"/>
+        <result property="generation"      column="generation"/>
+        <result property="mood"            column="mood"/>
         <result property="type"            column="type"/>
         <result property="youtubeUrl"      column="youtube_url"/>
         <result property="youtubeId"       column="youtube_id"/>
+        <result property="thumbnailUrl"    column="thumbnail_url"/>
         <result property="viewCount"       column="view_count"/>
         <result property="likeCount"       column="like_count"/>
-        <result property="trendScore"      column="trend_score"/>
-        <result property="score"           column="score"/>
-        <result property="scoreUpdatedAt"  column="score_updated_at"/>
         <result property="releasedAt"      column="released_at"/>
         <result property="createdAt"       column="created_at"/>
+        <result property="durationSeconds"  column="duration_seconds"/>
+        <result property="bpm"              column="bpm"/>
+        <result property="energy"           column="energy"/>
+        <result property="danceability"     column="danceability"/>
+        <result property="loudness"         column="loudness"/>
+        <result property="musicalKey"       column="musical_key"/>
+        <result property="musicalScale"     column="musical_scale"/>
+        <result property="spectralCentroid" column="spectral_centroid"/>
+        <result property="zeroCrossingRate" column="zero_crossing_rate"/>
+        <result property="isAnalyzed"       column="is_analyzed"/>
+        <result property="updatedAt"        column="updated_at"/>
     </resultMap>
 
-    <!-- 노래 등록 -->
+    <resultMap id="RadioRecommendationSongResultMap" type="com.ssafy.revibek.song.dto.SongDto">
+        <id     property="id"         column="id"/>
+        <result property="title"      column="title"/>
+        <result property="artist"     column="artist"/>
+        <result property="genre"      column="genre"/>
+        <result property="era"        column="era"/>
+        <result property="generation" column="generation"/>
+        <result property="youtubeUrl" column="youtube_url"/>
+        <result property="youtubeId"  column="youtube_id"/>
+        <result property="thumbnailUrl" column="thumbnail_url"/>
+    </resultMap>
+
     <insert id="insertSong" parameterType="com.ssafy.revibek.song.dto.SongDto">
         INSERT INTO songs (
-            id, title, artist, genre, era, type,
-            youtube_url, youtube_id,
+            id, title, artist, genre, era, generation, mood, type,
+            youtube_url, youtube_id, thumbnail_url,
             view_count, like_count,
-            trend_score, score,
-            released_at, created_at
+            released_at, created_at,
+            duration_seconds, bpm, energy,
+            danceability, loudness,
+            musical_key, musical_scale,
+            spectral_centroid, zero_crossing_rate, is_analyzed
         ) VALUES (
-            UUID(), #{title}, #{artist}, #{genre}, #{era}, #{type},
-            #{youtubeUrl}, #{youtubeId},
+            UUID(), #{title}, #{artist}, #{genre}, #{era}, #{generation}, #{mood}, #{type},
+            #{youtubeUrl}, #{youtubeId}, #{thumbnailUrl},
             #{viewCount}, #{likeCount},
-            #{trendScore}, #{score},
-            #{releasedAt}, NOW()
+            #{releasedAt}, NOW(),
+            #{durationSeconds}, #{bpm}, #{energy},
+            #{danceability}, #{loudness},
+            #{musicalKey}, #{musicalScale},
+            #{spectralCentroid}, #{zeroCrossingRate}, #{isAnalyzed}
         )
     </insert>
 
-    <!-- 전체 조회 -->
     <select id="selectAllSongs" resultMap="SongResultMap">
-        SELECT *
-        FROM songs
+        SELECT * FROM songs ORDER BY created_at DESC
+    </select>
+
+    <!-- embedding_songs에 해당 타입의 메타가 등록된 곡만 조회 (예: Qdrant AUDIO_9D 색인 대상 좁히기) -->
+    <select id="selectSongsWithEmbeddingMeta" resultMap="SongResultMap">
+        SELECT s.* FROM songs s
+        INNER JOIN embedding_songs e ON e.song_id = s.id AND e.embedding_type = #{embeddingType}
+        ORDER BY s.created_at DESC
+    </select>
+
+    <select id="selectSongById" parameterType="String" resultMap="SongResultMap">
+        SELECT * FROM songs WHERE id = #{id}
+    </select>
+
+    <select id="selectSongByYoutubeId" parameterType="String" resultMap="SongResultMap">
+        SELECT * FROM songs WHERE youtube_id = #{youtubeId}
+    </select>
+
+    <select id="selectSongByTitle" parameterType="String" resultMap="SongResultMap">
+        SELECT * FROM songs
+        WHERE title LIKE CONCAT('%', #{title}, '%')
         ORDER BY created_at DESC
     </select>
 
-    <!-- ID로 단건 조회 -->
-    <select id="selectSongById" parameterType="String" resultMap="SongResultMap">
-        SELECT *
-        FROM songs
-        WHERE id = #{id}
-    </select>
-
-    <!-- 제목으로 검색 -->
-    <select id="selectSongByTitle" parameterType="String" resultMap="SongResultMap">
-        SELECT *
-        FROM songs
-        WHERE title LIKE CONCAT('%', #{title}, '%')
-        ORDER BY score DESC
-    </select>
-
-    <!-- 장르별 조회 -->
     <select id="selectSongsByGenre" parameterType="String" resultMap="SongResultMap">
-        SELECT *
+        SELECT * FROM songs WHERE genre = #{genre} ORDER BY created_at DESC
+    </select>
+
+    <select id="selectRecommendSongs" resultMap="SongResultMap">
+        SELECT * FROM songs ORDER BY created_at DESC LIMIT 10
+    </select>
+
+    <sql id="RadioRecommendationColumns">
+        id,
+        title,
+        artist,
+        genre,
+        era,
+        generation,
+        youtube_url,
+        youtube_id,
+        thumbnail_url
+    </sql>
+
+    <sql id="ExcludedKeywordCondition">
+        <if test="excludedKeywords != null and excludedKeywords != ''">
+            AND LOWER(CONCAT(title, ' ', artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
+        </if>
+    </sql>
+
+    <!--
+        song_moods 기반 신규 추천 쿼리.
+        songs.mood(자유 문자열) 대신 정규화된 song_moods.mood_code로 조회한다.
+        결과가 없을 때만 아래의 기존 mood(레거시 문자열) 기반 쿼리로 폴백한다.
+    -->
+    <select id="findRecommendedSongsByMoodCodeEraGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT DISTINCT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs s
+        JOIN song_moods sm ON sm.song_id = s.id
+        WHERE sm.mood_code = #{moodCode}
+          AND (s.era = #{era} OR s.generation = #{generation})
+          AND s.genre = #{genre}
+          <if test="excludedKeywords != null and excludedKeywords != ''">
+              AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
+          </if>
+        ORDER BY s.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMoodCodeEra" resultMap="RadioRecommendationSongResultMap">
+        SELECT DISTINCT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs s
+        JOIN song_moods sm ON sm.song_id = s.id
+        WHERE sm.mood_code = #{moodCode}
+          AND (s.era = #{era} OR s.generation = #{generation})
+          <if test="excludedKeywords != null and excludedKeywords != ''">
+              AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
+          </if>
+        ORDER BY s.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMoodCodeGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT DISTINCT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs s
+        JOIN song_moods sm ON sm.song_id = s.id
+        WHERE sm.mood_code = #{moodCode}
+          AND s.genre = #{genre}
+          <if test="excludedKeywords != null and excludedKeywords != ''">
+              AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
+          </if>
+        ORDER BY s.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMoodCode" resultMap="RadioRecommendationSongResultMap">
+        SELECT DISTINCT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs s
+        JOIN song_moods sm ON sm.song_id = s.id
+        WHERE sm.mood_code = #{moodCode}
+          <if test="excludedKeywords != null and excludedKeywords != ''">
+              AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
+          </if>
+        ORDER BY s.created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 아래는 기존(레거시) songs.mood 문자열 기반 쿼리. song_moods에 결과가 없을 때의 폴백으로 계속 사용한다. -->
+    <select id="findRecommendedSongsByMoodEraGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          AND (era = #{era} OR generation = #{generation})
+          AND genre = #{genre}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMoodEra" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          AND (era = #{era} OR generation = #{generation})
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMoodGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          AND genre = #{genre}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByMood" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE mood = #{mood}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByEraAndGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE (era = #{era} OR generation = #{generation})
+          AND genre = #{genre}
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByEra" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        WHERE (era = #{era} OR generation = #{generation})
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="findRecommendedSongsByGenre" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
         FROM songs
         WHERE genre = #{genre}
-        ORDER BY score DESC
+          <include refid="ExcludedKeywordCondition"/>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
     </select>
 
-    <!-- 점수 기반 추천 TOP 10 -->
-    <select id="selectRecommendSongs" resultMap="SongResultMap">
-        SELECT *
+    <select id="findRecommendedSongsByPreference" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
         FROM songs
-        ORDER BY score DESC
-        LIMIT 10
+        <where>
+            <trim prefix="(" suffix=")" prefixOverrides="OR">
+                <if test="moods != null and moods.size() > 0">
+                    OR mood IN
+                    <foreach collection="moods" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="generations != null and generations.size() > 0">
+                    OR generation IN
+                    <foreach collection="generations" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="eras != null and eras.size() > 0">
+                    OR era IN
+                    <foreach collection="eras" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="genres != null and genres.size() > 0">
+                    OR genre IN
+                    <foreach collection="genres" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+                <if test="artists != null and artists.size() > 0">
+                    OR artist IN
+                    <foreach collection="artists" item="item" open="(" separator="," close=")">
+                        #{item}
+                    </foreach>
+                </if>
+            </trim>
+            <include refid="ExcludedKeywordCondition"/>
+        </where>
+        ORDER BY created_at DESC
+        LIMIT #{limit}
     </select>
 
-    <!-- 노래 정보 수정 -->
+    <select id="findTopScoreSongs" resultMap="RadioRecommendationSongResultMap">
+        SELECT
+            <include refid="RadioRecommendationColumns"/>
+        FROM songs
+        ORDER BY created_at DESC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectMoodCodesBySongId" parameterType="String" resultType="String">
+        SELECT mood_code FROM song_moods WHERE song_id = #{songId}
+    </select>
+
+    <!--
+        song_moods를 곡(song_id) 범위 내에서만 동기화한다(전체 삭제 후 재삽입 금지).
+        호출 순서: deleteSongMoodsNotIn으로 더 이상 유효하지 않은 코드만 제거 ->
+        insertSongMoodsIgnore로 신규 코드만 추가. moodCodes가 비어 있으면
+        deleteSongMoodsNotIn은 해당 곡의 모든 행을 제거하고, insertSongMoodsIgnore는
+        Service 계층에서 호출하지 않는다(빈 VALUES는 SQL 오류이므로).
+    -->
+    <delete id="deleteSongMoodsNotIn">
+        DELETE FROM song_moods
+        WHERE song_id = #{songId}
+        <if test="moodCodes != null and !moodCodes.isEmpty()">
+            AND mood_code NOT IN
+            <foreach item="code" collection="moodCodes" open="(" separator="," close=")">
+                #{code}
+            </foreach>
+        </if>
+    </delete>
+
+    <insert id="insertSongMoodsIgnore">
+        INSERT IGNORE INTO song_moods (song_id, mood_code) VALUES
+        <foreach item="code" collection="moodCodes" separator=",">
+            (#{songId}, #{code})
+        </foreach>
+    </insert>
+
     <update id="updateSong" parameterType="com.ssafy.revibek.song.dto.SongDto">
         UPDATE songs
         SET
-            title           = #{title},
-            artist          = #{artist},
-            genre           = #{genre},
-            era             = #{era},
-            type            = #{type},
-            youtube_url     = #{youtubeUrl},
-            youtube_id      = #{youtubeId},
-            view_count      = #{viewCount},
-            like_count      = #{likeCount},
-            trend_score     = #{trendScore},
-            score           = #{score},
-            score_updated_at = NOW(),
-            released_at     = #{releasedAt}
+            title            = #{title},
+            artist           = #{artist},
+            genre            = #{genre},
+            era              = #{era},
+            generation       = #{generation},
+            mood             = #{mood},
+            type             = #{type},
+            youtube_url      = #{youtubeUrl},
+            youtube_id       = #{youtubeId},
+            thumbnail_url    = #{thumbnailUrl},
+            view_count       = #{viewCount},
+            like_count       = #{likeCount},
+            released_at      = #{releasedAt},
+            duration_seconds = #{durationSeconds},
+            bpm              = #{bpm},
+            energy           = #{energy},
+            danceability     = #{danceability},
+            loudness         = #{loudness},
+            musical_key      = #{musicalKey},
+            musical_scale    = #{musicalScale},
+            spectral_centroid = #{spectralCentroid},
+            zero_crossing_rate = #{zeroCrossingRate},
+            is_analyzed      = #{isAnalyzed}
         WHERE id = #{id}
     </update>
 
-    <!-- 노래 삭제 -->
     <delete id="deleteSong" parameterType="String">
-        DELETE FROM songs
-        WHERE id = #{id}
+        DELETE FROM songs WHERE id = #{id}
     </delete>
 
 </mapper>

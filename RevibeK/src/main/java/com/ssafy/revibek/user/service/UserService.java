@@ -11,7 +11,7 @@ import com.ssafy.revibek.user.dto.UserResponseDto;
 @Service
 @RequiredArgsConstructor
 public class UserService {
-	
+
 	private final UserMapper userMapper;
 	
 	//회원가입

@@ -11,13 +11,27 @@ import lombok.NoArgsConstructor;
 public class RadioResponseDto {
 	
 	private String id;
+	private String playlistId;
 	private String mood;
 	private String story;
+	private String era;
+	private String genre;
+	private String situation;
+	private String desiredMood;
+	private String videoType;
+	private String preferredArtist;
+	private String excludedKeywords;
+	private String recommendationSource;
 	private String djMent;
+	private Boolean isPublic;
+	private java.time.LocalDateTime publishedAt;
 	private String comfortText;
 	private String novelExcept;
 	private LocalDateTime createdAt;
 	private List<RadioSongDto> songs;
+	// MyBatis resultMap(association)이 tts_mode/tts_audio_url 컬럼을 채워준다.
+	// tts_mode가 NULL이면(과거 세션 또는 TTS 미생성) null로 남고, RadioService에서 djMent 기반 브라우저 fallback으로 보강한다.
+	private TtsFallbackResponseDto tts;
 	
 	@Data
 	@NoArgsConstructor

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ssafy.revibek.analysis.mapper.RawVideoMapper">
+
+    <select id="selectRawVideos" resultType="com.ssafy.revibek.analysis.dto.RawVideoDto">
+        SELECT
+            video_id,
+            video_url,
+            title AS video_title,
+            duration_seconds
+        FROM youtube_videos_raw
+        WHERE is_analyzed = 0
+        ORDER BY fetched_at ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="updateIsAnalyzed">
+        UPDATE youtube_videos_raw
+        SET is_analyzed = 1
+        WHERE video_id = #{videoId}
+    </update>
+
+</mapper>
