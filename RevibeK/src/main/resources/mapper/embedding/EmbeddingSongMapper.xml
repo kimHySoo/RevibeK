@@ -11,7 +11,7 @@
         <result property="modelName"        column="model_name"/>
         <result property="dimension"        column="dimension"/>
         <result property="sourceText"       column="source_text"/>
-        <result property="vectorFilePath"   column="vector_file_path"/>
+        <result property="vector"           column="vector"           typeHandler="com.ssafy.revibek.embedding.mapper.JsonFloatListTypeHandler"/>
         <result property="qdrantCollection" column="qdrant_collection"/>
         <result property="qdrantPointId"    column="qdrant_point_id"/>
         <result property="isIndexed"        column="is_indexed"/>
@@ -23,18 +23,19 @@
     <insert id="upsert" parameterType="com.ssafy.revibek.embedding.dto.EmbeddingSongDto">
         INSERT INTO embedding_songs (
             id, song_id, embedding_type, model_name, dimension,
-            source_text, vector_file_path, qdrant_collection, qdrant_point_id,
+            source_text, vector, qdrant_collection, qdrant_point_id,
             is_indexed, indexed_at
         ) VALUES (
             UUID(), #{songId}, #{embeddingType}, #{modelName}, #{dimension},
-            #{sourceText}, #{vectorFilePath}, #{qdrantCollection}, #{qdrantPointId},
+            #{sourceText}, #{vector, typeHandler=com.ssafy.revibek.embedding.mapper.JsonFloatListTypeHandler},
+            #{qdrantCollection}, #{qdrantPointId},
             #{isIndexed}, #{indexedAt}
         )
         ON DUPLICATE KEY UPDATE
             model_name        = VALUES(model_name),
             dimension         = VALUES(dimension),
             source_text       = VALUES(source_text),
-            vector_file_path  = VALUES(vector_file_path),
+            vector             = VALUES(vector),
             qdrant_collection = VALUES(qdrant_collection),
             qdrant_point_id   = VALUES(qdrant_point_id),
             is_indexed        = VALUES(is_indexed),
@@ -44,6 +45,13 @@
     <select id="selectBySongIdAndType" resultMap="EmbeddingSongResultMap">
         SELECT * FROM embedding_songs
         WHERE song_id = #{songId} AND embedding_type = #{embeddingType}
+    </select>
+
+    <!-- answer16.md 4.1/4.2: "songs에 해당하는 것만" upsert를 SQL에 명시적으로 드러낸다 -->
+    <select id="selectByEmbeddingType" resultMap="EmbeddingSongResultMap">
+        SELECT e.* FROM embedding_songs e
+        JOIN songs s ON s.id = e.song_id
+        WHERE e.embedding_type = #{embeddingType}
     </select>
 
 </mapper>

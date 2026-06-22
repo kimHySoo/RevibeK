@@ -31,9 +31,10 @@ public class EmbeddingController {
     private final AnalysisService analysisService;
     private final QdrantService qdrantService;
 
-    // 임베딩 파일이 없는 곡에 대해 임베딩 생성 후 song_embeddings 폴더에 저장
+    // embedding_songs(TEXT_OPENAI) 행이 없는 곡에 대해 GMS 임베딩 API를 호출해 vector 컬럼에 직접 저장
+    // (과거에는 song_embeddings 폴더에 파일로 저장했으나 answer16.md 이후 DB가 단일 소스)
     @PostMapping("/generate")
-    @Operation(summary = "곡 임베딩 생성", description = "임베딩 파일이 없는 곡에 대해 GMS 임베딩 API를 호출해 song_embeddings 폴더에 저장합니다.")
+    @Operation(summary = "곡 임베딩 생성", description = "embedding_songs(TEXT_OPENAI)에 없는 곡에 대해 GMS 임베딩 API를 호출해 vector 컬럼(JSON)에 직접 저장합니다.")
     public ResponseEntity<?> generate() {
         try {
             int count = songEmbeddingService.generateEmbeddings();
@@ -65,9 +66,9 @@ public class EmbeddingController {
         }
     }
 
-    // song_embeddings 폴더의 임베딩 파일을 Qdrant에 upsert
+    // embedding_songs(TEXT_OPENAI, songs와 JOIN된 것만)를 Qdrant에 upsert
     @PostMapping("/sync-to-qdrant")
-    @Operation(summary = "임베딩 Qdrant 동기화", description = "song_embeddings 폴더의 임베딩 파일을 Qdrant에 upsert합니다.")
+    @Operation(summary = "임베딩 Qdrant 동기화", description = "embedding_songs(TEXT_OPENAI)를 조회해 Qdrant에 upsert합니다.")
     public ResponseEntity<?> syncToQdrant() {
         try {
             int count = embeddingQdrantSyncService.syncToQdrant();

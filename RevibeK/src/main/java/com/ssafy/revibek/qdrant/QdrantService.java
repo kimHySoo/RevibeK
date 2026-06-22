@@ -91,7 +91,12 @@ public class QdrantService {
         }
     }
 
-    public void upsertSongs(List<SongDto> songs) {
+    /**
+     * embedding_songs.vector(AUDIO_9D)에 저장된 벡터를 우선 사용하고, 없는 곡만
+     * SongVectorUtil로 즉석 계산한다(answer16.md 4.1 — 재계산과 시드 계산 로직이
+     * 어긋날 여지를 없애기 위해 저장된 값을 신뢰).
+     */
+    public void upsertSongs(List<SongDto> songs, Map<String, List<Float>> vectorsBySongId) {
         if (!enabled) {
             log.info("Qdrant disabled. Skip batch upsert: {} songs", songs.size());
             return;
@@ -99,7 +104,8 @@ public class QdrantService {
 
         List<PointStruct> points = songs.stream()
             .flatMap(s -> {
-                float[] vec = SongVectorUtil.toVector(s);
+                float[] vec = toStoredVector(vectorsBySongId.get(s.getId()));
+                if (vec == null) vec = SongVectorUtil.toVector(s);
                 if (vec == null) return Stream.empty();
                 return Stream.of(PointStruct.newBuilder()
                     .setId(id(UUID.fromString(s.getId())))
@@ -116,6 +122,13 @@ public class QdrantService {
         } catch (Exception e) {
             log.warn("Qdrant batch upsert 실패. fallback 사용 예정: {}", e.getMessage());
         }
+    }
+
+    private float[] toStoredVector(List<Float> stored) {
+        if (stored == null || stored.isEmpty()) return null;
+        float[] vec = new float[stored.size()];
+        for (int i = 0; i < stored.size(); i++) vec[i] = stored.get(i);
+        return vec;
     }
 
     /**

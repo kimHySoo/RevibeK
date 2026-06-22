@@ -17,7 +17,7 @@ import org.springframework.web.client.RestTemplate;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.LinkedHashMap;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -60,10 +60,10 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
             return 0;
         }
 
-        File dir = new File(fastApiProjectPath, "song_embeddings");
-        if (!dir.exists()) {
-            dir.mkdirs();
-        }
+        // 과거(파일 시대)에 생성된 song_embeddings/{songId}.json이 남아있으면 GMS API
+        // 재호출 없이 그 벡터로 DB를 백필한다 — answer16.md 1장 이후로는 이 디렉터리에
+        // 새 파일을 쓰지 않는다(벡터 본체는 embedding_songs.vector가 단일 소스).
+        File legacyDir = new File(fastApiProjectPath, "song_embeddings");
 
         int generatedCount = 0;
         int backfilledCount = 0;
@@ -72,9 +72,9 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
                 continue;
             }
 
-            File file = new File(dir, song.getId() + ".json");
-            if (file.exists()) {
-                if (backfillFromExistingFile(song, file)) {
+            File legacyFile = new File(legacyDir, song.getId() + ".json");
+            if (legacyFile.exists()) {
+                if (backfillFromLegacyFile(song, legacyFile)) {
                     backfilledCount++;
                 }
                 continue;
@@ -86,18 +86,8 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
                 continue;
             }
 
-            try {
-                Map<String, Object> data = new LinkedHashMap<>();
-                data.put("songId", song.getId());
-                data.put("model", embeddingModel);
-                data.put("text", text);
-                data.put("vector", vector);
-                objectMapper.writeValue(file, data);
-                saveEmbeddingSong(song.getId(), text, vector.length, file);
-                generatedCount++;
-            } catch (IOException e) {
-                log.warn("[Embedding] 파일 저장 실패: {} - {}", song.getId(), e.getMessage());
-            }
+            saveEmbeddingSong(song.getId(), text, toFloatList(vector));
+            generatedCount++;
         }
 
         log.info("[Embedding] 생성 완료: 신규 {}개, DB 백필 {}개", generatedCount, backfilledCount);
@@ -108,7 +98,7 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
      * 과거에 만들어진 song_embeddings/{songId}.json은 있지만 embedding_songs 행이 없는 곡을
      * GMS API 재호출 없이 기존 파일 내용만으로 DB에 채운다.
      */
-    private boolean backfillFromExistingFile(SongDto song, File file) {
+    private boolean backfillFromLegacyFile(SongDto song, File file) {
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> data = objectMapper.readValue(file, Map.class);
@@ -118,7 +108,8 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
             if (vector == null || vector.isEmpty()) {
                 return false;
             }
-            saveEmbeddingSong(song.getId(), text, vector.size(), file);
+            List<Float> floats = vector.stream().map(Number::floatValue).toList();
+            saveEmbeddingSong(song.getId(), text, floats);
             return true;
         } catch (IOException e) {
             log.warn("[Embedding] 기존 파일 읽기 실패(백필 스킵): {} - {}", song.getId(), e.getMessage());
@@ -126,19 +117,27 @@ public class SongEmbeddingServiceImpl implements SongEmbeddingService {
         }
     }
 
-    private void saveEmbeddingSong(String songId, String sourceText, int dimension, File file) {
+    private void saveEmbeddingSong(String songId, String sourceText, List<Float> vector) {
         embeddingSongDao.upsert(EmbeddingSongDto.builder()
             .songId(songId)
             .embeddingType(EMBEDDING_TYPE)
             .modelName(embeddingModel)
-            .dimension(dimension)
+            .dimension(vector.size())
             .sourceText(sourceText)
-            .vectorFilePath(file.getAbsolutePath())
+            .vector(vector)
             .qdrantCollection(textCollection)
             .qdrantPointId(songId)
             .isIndexed(false)
             .indexedAt(null)
             .build());
+    }
+
+    private List<Float> toFloatList(float[] vector) {
+        List<Float> list = new ArrayList<>(vector.length);
+        for (float v : vector) {
+            list.add(v);
+        }
+        return list;
     }
 
     private String buildText(SongDto song) {

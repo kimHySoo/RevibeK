@@ -1,5 +1,7 @@
 package com.ssafy.revibek.qdrant;
 
+import com.ssafy.revibek.embedding.dto.EmbeddingSongDto;
+import com.ssafy.revibek.embedding.mapper.EmbeddingSongDao;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.service.SongService;
 import com.ssafy.revibek.qdrant.dto.VectorSearchResponseDto;
@@ -10,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/qdrant")
@@ -17,15 +21,20 @@ import java.util.List;
 @RequiredArgsConstructor
 public class QdrantController {
 
+    private static final String AUDIO_9D = "AUDIO_9D";
+
     private final QdrantService qdrantService;
     private final SongService songService;
+    private final EmbeddingSongDao embeddingSongDao;
 
     @PostMapping("/embed")
     @Operation(summary = "곡 벡터 저장", description = "embedding_songs(AUDIO_9D)에 등록된 곡만 Qdrant에 upsert")
     public ResponseEntity<String> embedAll() {
         qdrantService.createCollectionIfNotExists();
-        List<SongDto> songs = songService.getSongsWithEmbeddingMeta("AUDIO_9D");
-        qdrantService.upsertSongs(songs);
+        List<SongDto> songs = songService.getSongsWithEmbeddingMeta(AUDIO_9D);
+        Map<String, List<Float>> vectorsBySongId = embeddingSongDao.selectByEmbeddingType(AUDIO_9D).stream()
+            .collect(Collectors.toMap(EmbeddingSongDto::getSongId, EmbeddingSongDto::getVector));
+        qdrantService.upsertSongs(songs, vectorsBySongId);
         return ResponseEntity.ok(songs.size() + "곡 Qdrant 저장 완료");
     }
 

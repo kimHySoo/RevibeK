@@ -1,6 +1,7 @@
 package com.ssafy.revibek.embedding.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ssafy.revibek.embedding.dto.EmbeddingSongDto;
+import com.ssafy.revibek.embedding.mapper.EmbeddingSongDao;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.grpc.Collections.Distance;
 import io.qdrant.client.grpc.Collections.VectorParams;
@@ -10,7 +11,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,8 +25,7 @@ import static io.qdrant.client.VectorsFactory.vectors;
 @RequiredArgsConstructor
 public class EmbeddingQdrantSyncService {
 
-    @Value("${fastapi.project.path:../RevibeK_AI}")
-    private String fastApiProjectPath;
+    private static final String EMBEDDING_TYPE = "TEXT_OPENAI";
 
     @Value("${qdrant.enabled:false}")
     private boolean enabled;
@@ -35,10 +34,12 @@ public class EmbeddingQdrantSyncService {
     private String collection;
 
     private final QdrantClient qdrantClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final EmbeddingSongDao embeddingSongDao;
 
     /**
-     * song_embeddings 폴더의 임베딩 파일을 읽어 Qdrant 텍스트 임베딩 컬렉션에 upsert한다.
+     * embedding_songs(TEXT_OPENAI, songs와 JOIN된 것만)를 읽어 Qdrant 텍스트 임베딩
+     * 컬렉션에 upsert한다. answer16.md 4.2 -- 과거에는 song_embeddings/ 디렉터리를
+     * 직접 스캔했으나, 벡터 본체가 embedding_songs.vector로 옮겨오면서 DB 조회로 대체했다.
      *
      * @return Qdrant에 동기화된 곡 수
      */
@@ -48,42 +49,33 @@ public class EmbeddingQdrantSyncService {
             return 0;
         }
 
-        File dir = new File(fastApiProjectPath, "song_embeddings");
-        File[] files = dir.listFiles((d, name) -> name.endsWith(".json"));
-        if (files == null || files.length == 0) {
-            log.info("[Embedding] 동기화 대상 파일 없음: {}", dir.getAbsolutePath());
+        List<EmbeddingSongDto> embeddings = embeddingSongDao.selectByEmbeddingType(EMBEDDING_TYPE);
+        if (embeddings.isEmpty()) {
+            log.info("[Embedding] 동기화 대상 없음 (embedding_songs.embedding_type={})", EMBEDDING_TYPE);
             return 0;
         }
 
         List<PointStruct> points = new ArrayList<>();
         int vectorSize = 0;
 
-        for (File file : files) {
-            try {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> data = objectMapper.readValue(file, Map.class);
-                String songId = (String) data.get("songId");
-
-                @SuppressWarnings("unchecked")
-                List<Number> vectorList = (List<Number>) data.get("vector");
-                if (songId == null || vectorList == null || vectorList.isEmpty()) {
-                    continue;
-                }
-
-                float[] vector = new float[vectorList.size()];
-                for (int i = 0; i < vectorList.size(); i++) {
-                    vector[i] = vectorList.get(i).floatValue();
-                }
-                vectorSize = vector.length;
-
-                points.add(PointStruct.newBuilder()
-                    .setId(id(UUID.nameUUIDFromBytes(songId.getBytes())))
-                    .setVectors(vectors(vector))
-                    .putAllPayload(Map.of("song_id", value(songId)))
-                    .build());
-            } catch (Exception e) {
-                log.warn("[Embedding] 파일 읽기 실패: {} - {}", file.getName(), e.getMessage());
+        for (EmbeddingSongDto e : embeddings) {
+            String songId = e.getSongId();
+            List<Float> vectorList = e.getVector();
+            if (vectorList == null || vectorList.isEmpty()) {
+                continue;
             }
+
+            float[] vector = new float[vectorList.size()];
+            for (int i = 0; i < vectorList.size(); i++) {
+                vector[i] = vectorList.get(i);
+            }
+            vectorSize = vector.length;
+
+            points.add(PointStruct.newBuilder()
+                .setId(id(UUID.nameUUIDFromBytes(songId.getBytes())))
+                .setVectors(vectors(vector))
+                .putAllPayload(Map.of("song_id", value(songId)))
+                .build());
         }
 
         if (points.isEmpty()) {
