@@ -47,6 +47,9 @@ services:
       ai:
         condition: service_started
     environment:
+      # GOOGLE_OAUTH_ENABLED/GOOGLE_CLIENT_ID 등 env→property 매핑이 application-prod.properties에만
+      # 있어서, 이 프로필이 활성화되지 않으면 Google 로그인이 항상 비활성 상태가 된다(error08.md).
+      SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:mysql://mysql:3306/kpop_radio_2?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
