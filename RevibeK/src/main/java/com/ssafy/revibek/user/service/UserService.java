@@ -10,7 +10,7 @@ import com.ssafy.revibek.user.dto.UserUpdateRequestDto;
 @Service
 @RequiredArgsConstructor
 public class UserService {
-	
+
 	private final UserMapper userMapper;
 
 	public UserResponseDto getMyInfo(String userId) {
