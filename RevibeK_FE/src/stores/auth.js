@@ -21,8 +21,8 @@ export const useAuthStore = defineStore("auth", {
   actions: {
     restoreSession() {
       this.accessToken = getAccessToken()
-      this.refreshToken = localStorage.getItem(TOKEN_KEYS.refresh)
-      const u = localStorage.getItem(TOKEN_KEYS.user)
+      this.refreshToken = sessionStorage.getItem(TOKEN_KEYS.refresh)
+      const u = sessionStorage.getItem(TOKEN_KEYS.user)
       this.user = u ? JSON.parse(u) : null
       this.initialized = true
     },
@@ -32,7 +32,7 @@ export const useAuthStore = defineStore("auth", {
       this.refreshToken = refreshToken
       this.user = user
       setTokens({ accessToken, refreshToken })
-      if (user) localStorage.setItem(TOKEN_KEYS.user, JSON.stringify(user))
+      if (user) sessionStorage.setItem(TOKEN_KEYS.user, JSON.stringify(user))
     },
 
     async login(credentials) {
@@ -60,7 +60,7 @@ export const useAuthStore = defineStore("auth", {
     async fetchMe() {
       const user = await authApi.me()
       this.user = user
-      localStorage.setItem(TOKEN_KEYS.user, JSON.stringify(user))
+      sessionStorage.setItem(TOKEN_KEYS.user, JSON.stringify(user))
       return user
     },
 
@@ -85,7 +85,7 @@ export const useAuthStore = defineStore("auth", {
     // Merge updated profile fields into state + storage.
     setUser(user) {
       this.user = user
-      if (user) localStorage.setItem(TOKEN_KEYS.user, JSON.stringify(user))
+      if (user) sessionStorage.setItem(TOKEN_KEYS.user, JSON.stringify(user))
     },
   },
 })
