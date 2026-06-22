@@ -12,6 +12,7 @@ public class UserSongResponseDto {
 
 	private String id;
 	private String userId;
+	private String songId;
 	private String title;
 	private String artist;
 	private int isSaved;

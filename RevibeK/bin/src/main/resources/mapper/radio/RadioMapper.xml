@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+  PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+  "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.ssafy.revibek.radio.mapper.RadioMapper">
+
+    <!-- 세션 저장 -->
+    <insert id="insertRadioSession">
+        INSERT INTO radio_sessions (id, user_id, mood, story)
+        VALUES (#{id}, #{userId}, #{mood}, #{story})
+    </insert>
+
+    <!-- 세션 조회 -->
+    <select id="selectRadioSessionByIdAndUserId"
+        resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
+        SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+        FROM radio_sessions
+        WHERE id = #{id}
+          AND user_id = #{userId}
+    </select>
+
+    <!-- 유저의 세션 목록 -->
+    <select id="selectRadioSessionByUserId" parameterType="string"
+        resultType="com.ssafy.revibek.radio.dto.RadioResponseDto">
+        SELECT id, mood, story, dj_ment, comfort_text, novel_excerpt, created_at
+        FROM radio_sessions
+        WHERE user_id = #{userId}
+        ORDER BY created_at DESC
+    </select>
+
+    <!-- 추천곡 저장 -->
+    <insert id="insertRecommendation">
+        INSERT INTO radio_recommendations (session_id, song_id, order_num, reason)
+        VALUES (#{sessionId}, #{songId}, #{orderNum}, #{reason})
+    </insert>
+
+    <!-- 세션별 추천곡 조회 -->
+    <select id="selectRecommendationBySessionId" parameterType="string"
+        resultType="com.ssafy.revibek.radio.dto.RadioResponseDto$RadioSongDto">
+        SELECT rr.song_id, s.title, s.artist, rr.order_num, rr.reason
+        FROM radio_recommendations rr
+        JOIN songs s ON s.id = rr.song_id
+        WHERE rr.session_id = #{sessionId}
+        ORDER BY rr.order_num
+    </select>
+
+</mapper>

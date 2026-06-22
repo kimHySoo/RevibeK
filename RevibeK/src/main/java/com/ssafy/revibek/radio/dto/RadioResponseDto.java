@@ -26,7 +26,8 @@ public class RadioResponseDto {
 	private Boolean isPublic;
 	private java.time.LocalDateTime publishedAt;
 	private String comfortText;
-	private String novelExcept;
+	// [FIX] DB 컬럼 novel_excerpt 와 camelCase 매핑이 맞도록 필드명 수정.
+	private String novelExcerpt;
 	private LocalDateTime createdAt;
 	private List<RadioSongDto> songs;
 	// MyBatis resultMap(association)이 tts_mode/tts_audio_url 컬럼을 채워준다.
