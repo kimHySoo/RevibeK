@@ -3,9 +3,11 @@ import { useAuthStore } from "@/stores/auth"
 
 const routes = [
   {
+    // 시작 화면을 라디오 사연 입력으로 고정 (docs/answer/frontend_refact.md 2번 항목).
+    // name은 유지 — MyPage.vue/NotFoundPage.vue가 router.push({ name: "landing" })으로 참조함.
     path: "/",
     name: "landing",
-    component: () => import("@/pages/LandingPage.vue"),
+    redirect: "/radio/story",
   },
   {
     path: "/login",
