@@ -10,7 +10,9 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 
 import com.google.common.util.concurrent.Futures;
+import com.ssafy.revibek.embedding.mapper.EmbeddingSongDao;
 import com.ssafy.revibek.song.mapper.SongDao;
+import com.ssafy.revibek.song.service.SongService;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.grpc.Points.QueryPoints;
 import io.qdrant.client.grpc.Points.ScoredPoint;
@@ -22,6 +24,8 @@ class QdrantServiceTest {
 
     private QdrantClient qdrantClient;
     private SongDao songDao;
+    private SongService songService;
+    private EmbeddingSongDao embeddingSongDao;
     private QdrantService qdrantService;
 
     private static final String SONG_ID = "9ebacc70-6beb-11f1-ad3a-80ca5293d4d8";
@@ -30,7 +34,9 @@ class QdrantServiceTest {
     void setUp() {
         qdrantClient = mock(QdrantClient.class);
         songDao = mock(SongDao.class);
-        qdrantService = new QdrantService(qdrantClient, songDao);
+        songService = mock(SongService.class);
+        embeddingSongDao = mock(EmbeddingSongDao.class);
+        qdrantService = new QdrantService(qdrantClient, songDao, songService, embeddingSongDao);
         ReflectionTestUtils.setField(qdrantService, "enabled", true);
         ReflectionTestUtils.setField(qdrantService, "collection", "revibek_songs");
     }

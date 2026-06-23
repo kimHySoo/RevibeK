@@ -41,9 +41,12 @@ public class EmbeddingQdrantSyncService {
      * 컬렉션에 upsert한다. answer16.md 4.2 -- 과거에는 song_embeddings/ 디렉터리를
      * 직접 스캔했으나, 벡터 본체가 embedding_songs.vector로 옮겨오면서 DB 조회로 대체했다.
      *
+     * <p>Qdrant 연결/upsert 실패 시 예외를 그대로 던진다 — 호출자(QdrantStartupSync)가
+     * 재시도할 수 있도록 여기서 삼키지 않는다.
+     *
      * @return Qdrant에 동기화된 곡 수
      */
-    public int syncToQdrant() {
+    public int syncToQdrant() throws Exception {
         if (!enabled) {
             log.info("[Embedding] Qdrant disabled. Skip sync.");
             return 0;
@@ -82,15 +85,10 @@ public class EmbeddingQdrantSyncService {
             return 0;
         }
 
-        try {
-            createCollectionIfNotExists(vectorSize);
-            qdrantClient.upsertAsync(collection, points).get();
-            log.info("[Embedding] Qdrant 동기화 완료: {}개", points.size());
-            return points.size();
-        } catch (Exception e) {
-            log.warn("[Embedding] Qdrant upsert 실패: {}", e.getMessage());
-            return 0;
-        }
+        createCollectionIfNotExists(vectorSize);
+        qdrantClient.upsertAsync(collection, points).get();
+        log.info("[Embedding] Qdrant 동기화 완료: {}개", points.size());
+        return points.size();
     }
 
     private void createCollectionIfNotExists(int vectorSize) throws Exception {
