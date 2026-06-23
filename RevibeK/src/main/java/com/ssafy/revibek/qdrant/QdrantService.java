@@ -1,9 +1,12 @@
 package com.ssafy.revibek.qdrant;
 
+import com.ssafy.revibek.embedding.dto.EmbeddingSongDto;
+import com.ssafy.revibek.embedding.mapper.EmbeddingSongDao;
 import com.ssafy.revibek.mood.GenerationCode;
 import com.ssafy.revibek.mood.GenreNormalizer;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.mapper.SongDao;
+import com.ssafy.revibek.song.service.SongService;
 import io.qdrant.client.QdrantClient;
 import io.qdrant.client.grpc.Collections.Distance;
 import io.qdrant.client.grpc.Collections.VectorParams;
@@ -20,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static io.qdrant.client.PointIdFactory.id;
@@ -34,8 +38,12 @@ import static io.qdrant.client.WithPayloadSelectorFactory.enable;
 @RequiredArgsConstructor
 public class QdrantService {
 
+    public static final String AUDIO_9D = "AUDIO_9D";
+
     private final QdrantClient qdrantClient;
     private final SongDao songDao;
+    private final SongService songService;
+    private final EmbeddingSongDao embeddingSongDao;
 
     @Value("${qdrant.enabled:false}")
     private boolean enabled;
@@ -53,18 +61,43 @@ public class QdrantService {
         }
 
         try {
-            List<String> existing = qdrantClient.listCollectionsAsync().get();
-            if (existing.contains(collection)) return;
-
-            qdrantClient.createCollectionAsync(collection,
-                VectorParams.newBuilder()
-                    .setSize(VECTOR_SIZE)
-                    .setDistance(Distance.Cosine)
-                    .build()).get();
-            log.info("Qdrant 컬렉션 생성: {}", collection);
+            createCollectionInternal();
         } catch (Exception e) {
             log.warn("Qdrant 컬렉션 생성 실패. fallback 사용 예정: {}", e.getMessage());
         }
+    }
+
+    private void createCollectionInternal() throws Exception {
+        List<String> existing = qdrantClient.listCollectionsAsync().get();
+        if (existing.contains(collection)) return;
+
+        qdrantClient.createCollectionAsync(collection,
+            VectorParams.newBuilder()
+                .setSize(VECTOR_SIZE)
+                .setDistance(Distance.Cosine)
+                .build()).get();
+        log.info("Qdrant 컬렉션 생성: {}", collection);
+    }
+
+    /**
+     * songs 테이블 전체(AUDIO_9D, embedding_songs와 JOIN된 것만)를 Qdrant에 upsert한다.
+     * 기동 시 자동 동기화(QdrantStartupSync)와 수동 트리거(POST /api/qdrant/embed)가
+     * 이 메서드를 공유한다. 실패 시 예외를 그대로 던져 호출자가 재시도할 수 있게 한다.
+     *
+     * @return Qdrant에 실제로 upsert된 곡 수
+     */
+    public int embedAllAudioSongs() throws Exception {
+        if (!enabled) {
+            log.info("Qdrant disabled. Skip AUDIO_9D batch upsert.");
+            return 0;
+        }
+
+        List<SongDto> songs = songService.getSongsWithEmbeddingMeta(AUDIO_9D);
+        Map<String, List<Float>> vectorsBySongId = embeddingSongDao.selectByEmbeddingType(AUDIO_9D).stream()
+            .collect(Collectors.toMap(EmbeddingSongDto::getSongId, EmbeddingSongDto::getVector));
+
+        createCollectionInternal();
+        return upsertSongsInternal(songs, vectorsBySongId);
     }
 
     public void upsertSong(SongDto song) {
@@ -102,6 +135,15 @@ public class QdrantService {
             return;
         }
 
+        try {
+            int upserted = upsertSongsInternal(songs, vectorsBySongId);
+            log.info("Qdrant upsert 완료: {}곡", upserted);
+        } catch (Exception e) {
+            log.warn("Qdrant batch upsert 실패. fallback 사용 예정: {}", e.getMessage());
+        }
+    }
+
+    private int upsertSongsInternal(List<SongDto> songs, Map<String, List<Float>> vectorsBySongId) throws Exception {
         List<PointStruct> points = songs.stream()
             .flatMap(s -> {
                 float[] vec = toStoredVector(vectorsBySongId.get(s.getId()));
@@ -115,13 +157,9 @@ public class QdrantService {
             })
             .toList();
 
-        if (points.isEmpty()) return;
-        try {
-            qdrantClient.upsertAsync(collection, points).get();
-            log.info("Qdrant upsert 완료: {}곡", points.size());
-        } catch (Exception e) {
-            log.warn("Qdrant batch upsert 실패. fallback 사용 예정: {}", e.getMessage());
-        }
+        if (points.isEmpty()) return 0;
+        qdrantClient.upsertAsync(collection, points).get();
+        return points.size();
     }
 
     private float[] toStoredVector(List<Float> stored) {

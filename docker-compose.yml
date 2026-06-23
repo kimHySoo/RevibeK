@@ -27,6 +27,12 @@ services:
     restart: unless-stopped
     volumes:
       - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks: [revibek-net]
 
   ai:
@@ -44,7 +50,7 @@ services:
       mysql:
         condition: service_healthy
       qdrant:
-        condition: service_started
+        condition: service_healthy
       ai:
         condition: service_started
     environment:
