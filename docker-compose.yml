@@ -38,6 +38,12 @@ services:
   ai:
     build: ./RevibeK_AI
     restart: unless-stopped
+    environment:
+      # yt-dlp가 유튜브 봇 탐지(IP 평판)를 피하도록 주거용 프록시를 경유시킴. PROXY_HOST 미설정 시 프록시 미사용.
+      PROXY_HOST: ${PROXY_HOST}
+      PROXY_PORT: ${PROXY_PORT}
+      PROXY_USERNAME: ${PROXY_USERNAME}
+      PROXY_PASSWORD: ${PROXY_PASSWORD}
     volumes:
       - ai-downloads:/app/downloads
       - song-embeddings:/app/song_embeddings
