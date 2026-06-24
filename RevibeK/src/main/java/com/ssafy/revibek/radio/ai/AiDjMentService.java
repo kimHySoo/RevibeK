@@ -25,7 +25,7 @@ public class AiDjMentService {
     }
 
     private String fallbackMent(RadioCreateRequestDto request, List<RecommendedSongResponseDto> songs) {
-        String era = safe(request.getEra());
+        String era = safe(request.getGeneration());
         String genre = safe(request.getGenre());
         String mood = safe(request.getMood());
         String firstSong = songs.isEmpty()

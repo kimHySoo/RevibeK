@@ -60,7 +60,7 @@ class RadioServiceTest {
     private RadioCreateRequestDto request() {
         RadioCreateRequestDto request = new RadioCreateRequestDto();
         request.setMood("그리운");
-        request.setEra("2세대");
+        request.setGeneration("2세대");
         request.setGenre("댄스");
         return request;
     }
@@ -220,40 +220,39 @@ class RadioServiceTest {
     void song_moods기반_moodCode쿼리가_결과를주면_레거시mood쿼리는_호출되지않는다() {
         stubDjMentAndTts();
         when(songDao.findRecommendedSongsByMoodCodeEraGenre(
-                eq("NOSTALGIC"), any(), any(), eq("댄스"), any(), anyInt()))
+                eq("NOSTALGIC"), any(), eq("댄스"), any(), anyInt()))
                 .thenReturn(List.of(song("song-1")));
 
         radioService.createRadio("user1", request());
 
-        verify(songDao, never()).findRecommendedSongsByMoodEraGenre(anyString(), anyString(), anyString(), anyString(), any(), anyInt());
+        verify(songDao, never()).findRecommendedSongsByMoodEraGenre(anyString(), anyString(), anyString(), any(), anyInt());
     }
 
     @Test
     void song_moods에결과가없으면_기존mood문자열기반_레거시폴백이호출된다() {
         stubDjMentAndTts();
-        // moodCode 기반 4단계는 모두 비어있다고 가정(스텁하지 않으면 Mockito 기본값인 빈 리스트가 반환됨).
+        // moodCode 기반 1단계는 비어있다고 가정(스텁하지 않으면 Mockito 기본값인 빈 리스트가 반환됨).
         when(songDao.findRecommendedSongsByMoodEraGenre(
-                eq("그리운"), anyString(), anyString(), eq("댄스"), any(), anyInt()))
+                eq("그리운"), anyString(), eq("댄스"), any(), anyInt()))
                 .thenReturn(List.of(song("song-2")));
 
         radioService.createRadio("user1", request());
 
-        verify(songDao, times(1)).findRecommendedSongsByMoodCodeEraGenre(eq("NOSTALGIC"), any(), any(), any(), any(), anyInt());
-        verify(songDao, times(1)).findRecommendedSongsByMoodEraGenre(eq("그리운"), anyString(), anyString(), eq("댄스"), any(), anyInt());
+        verify(songDao, times(1)).findRecommendedSongsByMoodCodeEraGenre(eq("NOSTALGIC"), any(), any(), any(), anyInt());
+        verify(songDao, times(1)).findRecommendedSongsByMoodEraGenre(eq("그리운"), anyString(), eq("댄스"), any(), anyInt());
     }
 
     @Test
-    void 세대가전체일때는_moodCode기반_세대조건쿼리를호출하지않는다() {
+    void 세대가전체일때는_moodCode기반_세대조건쿼리를호출하지않고_generation없이genre로만조회한다() {
         stubDjMentAndTts();
         RadioCreateRequestDto request = request();
-        request.setEra("전체");
-        when(songDao.findRecommendedSongsByMoodCodeGenre(eq("NOSTALGIC"), eq("댄스"), any(), anyInt()))
+        request.setGeneration("전체");
+        when(songDao.findRecommendedSongsByEraAndGenre(eq(null), eq("댄스"), any(), anyInt()))
                 .thenReturn(List.of(song("song-3")));
 
         radioService.createRadio("user1", request);
 
-        verify(songDao, never()).findRecommendedSongsByMoodCodeEraGenre(any(), any(), any(), any(), any(), anyInt());
-        verify(songDao, never()).findRecommendedSongsByMoodCodeEra(any(), any(), any(), any(), anyInt());
-        verify(songDao, times(1)).findRecommendedSongsByMoodCodeGenre(eq("NOSTALGIC"), eq("댄스"), any(), anyInt());
+        verify(songDao, never()).findRecommendedSongsByMoodCodeEraGenre(any(), any(), any(), any(), anyInt());
+        verify(songDao, times(1)).findRecommendedSongsByEraAndGenre(eq(null), eq("댄스"), any(), anyInt());
     }
 }

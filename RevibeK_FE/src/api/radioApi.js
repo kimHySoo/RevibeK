@@ -20,7 +20,7 @@ function toRadioRequest(payload = {}) {
     situation: payload.situation ?? "",
     desiredMood: payload.desiredMood ?? "",
     story: payload.story ?? "",
-    era: payload.era ?? "",
+    generation: payload.generation ?? "",
     genre: payload.genre ?? "",
     videoType: payload.videoType ?? "",
     preferredArtist: payload.preferredArtist ?? "",

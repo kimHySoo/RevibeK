@@ -21,7 +21,7 @@ public interface RadioMapper {
 	                               @Param("userId") String userId,
 	                               @Param("mood") String mood,
 	                               @Param("story") String story,
-	                               @Param("era") String era,
+	                               @Param("generation") String generation,
 	                               @Param("genre") String genre,
 	                               @Param("situation") String situation,
 	                               @Param("desiredMood") String desiredMood,

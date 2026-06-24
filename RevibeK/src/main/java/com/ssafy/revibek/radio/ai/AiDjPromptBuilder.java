@@ -18,14 +18,14 @@ public class AiDjPromptBuilder {
                 .mapToObj(i -> {
                     RecommendedSongResponseDto song = songs.get(i);
                     return (i + 1) + ". " + song.getArtist() + " - " + song.getTitle()
-                        + " (" + safe(song.getEra()) + ", " + safe(song.getGenre()) + ")";
+                        + " (" + safe(song.getGeneration()) + ", " + safe(song.getGenre()) + ")";
                 })
                 .collect(Collectors.joining("\n"));
 
         return buildPrompt(
             safe(request.getMood()),
             safe(request.getStory()),
-            safe(request.getEra()),
+            safe(request.getGeneration()),
             safe(request.getGenre()),
             songList.isBlank() ? "추천곡 없음" : songList
         );

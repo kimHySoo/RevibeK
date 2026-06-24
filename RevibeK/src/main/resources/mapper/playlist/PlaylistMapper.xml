@@ -21,7 +21,7 @@
         <result property="title" column="title"/>
         <result property="artist" column="artist"/>
         <result property="genre" column="genre"/>
-        <result property="era" column="era"/>
+        <result property="generation" column="generation"/>
         <result property="youtubeUrl" column="youtube_url"/>
         <result property="youtubeId" column="youtube_id"/>
         <result property="orderNum" column="order_num"/>
@@ -45,7 +45,7 @@
             <result property="title" column="song_title"/>
             <result property="artist" column="artist"/>
             <result property="genre" column="genre"/>
-            <result property="era" column="era"/>
+            <result property="generation" column="generation"/>
             <result property="youtubeUrl" column="youtube_url"/>
             <result property="youtubeId" column="youtube_id"/>
             <result property="orderNum" column="order_num"/>
@@ -82,7 +82,7 @@
             s.title AS song_title,
             s.artist,
             s.genre,
-            s.era,
+            s.generation,
             s.youtube_url,
             s.youtube_id,
             ps.order_num,
@@ -146,7 +146,7 @@
             s.title,
             s.artist,
             s.genre,
-            s.era,
+            s.generation,
             s.youtube_url,
             s.youtube_id,
             ps.order_num,

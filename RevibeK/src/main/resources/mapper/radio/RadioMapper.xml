@@ -18,7 +18,7 @@
             desired_mood, video_type, preferred_artist,
             excluded_keywords, recommendation_source, dj_ment
         ) VALUES (
-            #{id}, #{userId}, #{mood}, #{story}, #{era}, #{genre}, #{situation},
+            #{id}, #{userId}, #{mood}, #{story}, #{generation}, #{genre}, #{situation},
             #{desiredMood}, #{videoType}, #{preferredArtist},
             #{excludedKeywords}, #{recommendationSource}, #{djMent}
         )
@@ -69,7 +69,7 @@
             playlist_id,
             mood,
             story,
-            era,
+            era AS generation,
             genre,
             situation,
             desired_mood,
@@ -98,7 +98,7 @@
             playlist_id,
             mood,
             story,
-            era,
+            era AS generation,
             genre,
             situation,
             desired_mood,

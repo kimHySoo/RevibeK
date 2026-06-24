@@ -42,7 +42,7 @@ const showReviews = ref(false)
         </div>
 
         <div class="song-tags">
-          <span v-if="song.era" class="badge">{{ song.era }}</span>
+          <span v-if="song.generation || song.era" class="badge">{{ song.generation || song.era }}</span>
           <span v-if="song.genre" class="badge badge-neon">{{ song.genre }}</span>
         </div>
 

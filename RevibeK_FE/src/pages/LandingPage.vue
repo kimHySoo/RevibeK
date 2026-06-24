@@ -101,7 +101,7 @@ function start() {
           <span class="preview-num text-gradient">{{ i + 1 }}</span>
           <div>
             <h3 class="preview-title">{{ s.title }}</h3>
-            <p class="text-muted">{{ s.artist }} · {{ s.era }} · {{ s.genre }}</p>
+            <p class="text-muted">{{ s.artist }} · {{ s.generation }} · {{ s.genre }}</p>
           </div>
         </div>
       </div>

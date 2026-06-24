@@ -191,7 +191,7 @@ onBeforeUnmount(stopDjMent)
         <div class="player-bg" aria-hidden="true"></div>
         <div class="player-inner">
           <div class="player-meta">
-            <span class="badge">{{ data.era }}</span>
+            <span class="badge">{{ data.generation }}</span>
             <span class="badge">{{ data.genre }}</span>
             <span class="badge badge-mood">{{ data.mood }}</span>
           </div>

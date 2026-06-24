@@ -14,7 +14,7 @@ public class RecommendedSongResponseDto {
     private String songId;
     private String title;
     private String artist;
-    private String era;
+    private String generation;
     private String genre;
     private String youtubeUrl;
     private String youtubeId;

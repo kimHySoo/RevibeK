@@ -11,7 +11,7 @@ export function emptyRadioStory() {
     situation: "",
     desiredMood: "",
     story: "",
-    era: "",
+    generation: "",
     genre: "",
     videoType: "AI cover",
     preferredArtist: "",

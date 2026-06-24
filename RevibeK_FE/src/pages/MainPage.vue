@@ -108,7 +108,7 @@ const menu = [
           </div>
           <div class="meta-item">
             <span class="text-muted">세대</span>
-            <strong>{{ pending.era || "—" }}</strong>
+            <strong>{{ pending.generation || "—" }}</strong>
           </div>
           <div class="meta-item">
             <span class="text-muted">장르</span>

@@ -126,7 +126,7 @@ async function onSubmit() {
         <div class="field-grid">
           <section class="field-block">
             <label class="field-label">세대</label>
-            <EraChips v-model="form.era" />
+            <EraChips v-model="form.generation" />
           </section>
           <section class="field-block">
             <label class="field-label">영상 타입</label>

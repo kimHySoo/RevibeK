@@ -2,9 +2,9 @@ import { mockSongs } from "./songs"
 
 // Public radio stories shown in the 리바이브닝 feed.
 // Mirrors the backend GET /api/radio/public response shape.
-const songsFor = (eras = [], genres = [], n = 3) => {
+const songsFor = (generations = [], genres = [], n = 3) => {
   const picked = mockSongs.filter(
-    (s) => eras.includes(s.era) || genres.includes(s.genre)
+    (s) => generations.includes(s.generation) || genres.includes(s.genre)
   )
   return (picked.length ? picked : mockSongs).slice(0, n)
 }

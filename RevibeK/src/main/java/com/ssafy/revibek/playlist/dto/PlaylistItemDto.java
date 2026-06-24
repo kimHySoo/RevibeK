@@ -23,7 +23,7 @@ public class PlaylistItemDto {
     private String title;
     private String artist;
     private String genre;
-    private String era;
+    private String generation;
     private String youtubeUrl;
     private String youtubeId;
     private Integer orderNum;
