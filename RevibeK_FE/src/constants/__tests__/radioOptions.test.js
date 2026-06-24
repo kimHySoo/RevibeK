@@ -29,8 +29,8 @@ describe("radioOptions", () => {
     expect(GENERATION_OPTIONS.map((o) => o.value)).toEqual(["SECOND", "THIRD", "ALL"])
   })
 
-  it("장르 옵션은 정확히 6개다", () => {
-    expect(GENRE_OPTIONS).toHaveLength(6)
+  it("장르 옵션은 6개+전체(ALL) 7개다", () => {
+    expect(GENRE_OPTIONS).toHaveLength(7)
     expect(GENRE_OPTIONS.map((o) => o.value)).toEqual([
       "DANCE",
       "BALLAD",
@@ -38,6 +38,7 @@ describe("radioOptions", () => {
       "HIPHOP",
       "IDOL",
       "OST",
+      "ALL",
     ])
   })
 })

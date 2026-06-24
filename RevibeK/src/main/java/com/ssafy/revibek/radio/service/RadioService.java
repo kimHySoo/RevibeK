@@ -12,7 +12,6 @@ import com.ssafy.revibek.mood.GenerationNormalizer;
 import com.ssafy.revibek.mood.MoodCode;
 import com.ssafy.revibek.mood.MoodNormalizer;
 import com.ssafy.revibek.playlist.dto.PlaylistDto;
-import com.ssafy.revibek.playlist.dto.PlaylistItemDto;
 import com.ssafy.revibek.playlist.service.PlaylistService;
 import com.ssafy.revibek.qdrant.QdrantService;
 import com.ssafy.revibek.radio.ai.AiDjMentService;
@@ -80,7 +79,7 @@ public class RadioService {
 
         // YouTube URL이 있으면 임베딩 기반 Qdrant 검색 우선; 실패하면 DB 폴백
         List<SongDto> qdrantSeeds = StringUtils.hasText(request.getYoutubeUrl())
-                ? findByYoutubeUrlEmbedding(request.getYoutubeUrl(), DEFAULT_RECOMMENDATION_LIMIT, request)
+                ? findByYoutubeUrlEmbedding(request.getYoutubeUrl(), DEFAULT_RECOMMENDATION_LIMIT)
                 : List.of();
 
         List<SongDto> seedSongs;
@@ -93,7 +92,6 @@ public class RadioService {
                     effectiveMoodForRecommendation(request),
                     request.getGeneration(),
                     request.getGenre(),
-                    preference,
                     request.getExcludedKeywords(),
                     DEFAULT_RECOMMENDATION_LIMIT
             );
@@ -337,7 +335,7 @@ public class RadioService {
      * YouTube URL을 분석해 9D 임베딩을 얻고 Qdrant 벡터 검색으로 유사곡을 반환한다.
      * DB에 등록된 곡이면 UUID로 searchSimilar, 미등록이면 FastAPI 실시간 분석 후 searchByVector.
      */
-    private List<SongDto> findByYoutubeUrlEmbedding(String youtubeUrl, int limit, RadioCreateRequestDto request) {
+    private List<SongDto> findByYoutubeUrlEmbedding(String youtubeUrl, int limit) {
         String ytId = extractYoutubeId(youtubeUrl);
 
         // DB에 이미 등록된 곡이고 Qdrant에 벡터가 있으면 UUID 기반 검색 (빠름)
@@ -353,7 +351,7 @@ public class RadioService {
                         if (result.size() >= limit) break;
                         if (id.equals(existing.getId())) continue;
                         SongDto s = songService.getSongById(id);
-                        if (s != null && matchesEraAndGenre(s, request)) result.add(s);
+                        if (s != null) result.add(s);
                     }
                     return result;
                 }
@@ -368,7 +366,7 @@ public class RadioService {
             }
             return qdrantService.searchByVector(analysis.getEmbedding(), limit * QDRANT_CANDIDATE_POOL_FACTOR).stream()
                     .map(songService::getSongById)
-                    .filter(s -> s != null && matchesEraAndGenre(s, request))
+                    .filter(s -> s != null)
                     .limit(limit)
                     .collect(Collectors.toList());
         } catch (Exception e) {
@@ -423,7 +421,8 @@ public class RadioService {
         }
 
         String requestGenre = request.getGenre();
-        if (StringUtils.hasText(requestGenre) && !requestGenre.equals(song.getGenre())) {
+        boolean allGenres = "전체".equals(requestGenre);
+        if (!allGenres && StringUtils.hasText(requestGenre) && !requestGenre.equals(song.getGenre())) {
             return false;
         }
 
@@ -435,36 +434,28 @@ public class RadioService {
      * (genre를 선택해도 무시되는 일이 없도록 — docs 참고).
      */
     private RecommendationResult recommendSongs(
-            String mood, String generation, String genre,
-            UserPreferenceDto preference, String excludedKeywords, int limit
+            String mood, String generation, String genre, String excludedKeywords, int limit
     ) {
-        // moodCode 우선 단계: song_moods 정규화 테이블 기반. 결과가 없을 때만
-        // 바로 아래의 기존(레거시) songs.mood 문자열 기반 단계로 폴백한다.
+        // moodCode 단계: song_moods 정규화 테이블 기반. 결과가 없으면 mood 조건만 빼고
+        // era+genre 단계로 폴백한다.
         String moodCode = MoodNormalizer.normalize(mood).map(MoodCode::name).orElse(null);
-        // generation이 "전체"(ALL)면 세대 조건을 적용하지 않는다(곡에 ALL을 저장하지 않으므로
-        // 세대 일치 쿼리는 의미가 없다).
+        // generation/genre가 "전체"(ALL)면 해당 조건을 적용하지 않는다(곡에 ALL을 저장하지
+        // 않으므로 일치 쿼리는 의미가 없다).
         boolean allGenerations = GenerationNormalizer.normalize(generation)
                 .map(code -> code == GenerationCode.ALL)
                 .orElse(false);
         String generationFilter = allGenerations ? null : generation;
+        boolean allGenres = "전체".equals(genre);
+        String genreFilter = allGenres ? null : genre;
 
         List<SongDto> songs;
-        if (!allGenerations) {
+        if (!allGenerations && !allGenres) {
             songs = safeFindByMoodCodeEraGenre(moodCode, generation, genre, excludedKeywords, limit);
             if (!songs.isEmpty()) return new RecommendationResult("SONG_MOODS_MOOD_ERA_GENRE", songs);
         }
 
-        songs = safeFindByMoodEraGenre(mood, generationFilter, genre, excludedKeywords, limit);
-        if (!songs.isEmpty()) return new RecommendationResult("DB_MOOD_ERA_GENRE", songs);
-
-        songs = safeFindByEraAndGenre(generationFilter, genre, excludedKeywords, limit);
+        songs = safeFindByEraAndGenre(generationFilter, genreFilter, excludedKeywords, limit);
         if (!songs.isEmpty()) return new RecommendationResult("DB_ERA_GENRE", songs);
-
-        songs = safeFindByPreference(preference, generationFilter, genre, excludedKeywords, limit);
-        if (!songs.isEmpty()) return new RecommendationResult("DB_USER_PREFERENCE_FALLBACK", songs);
-
-        songs = safeFindTopScore(generationFilter, genre, limit);
-        if (!songs.isEmpty()) return new RecommendationResult("DB_SCORE_FALLBACK", songs);
 
         return new RecommendationResult("DB_EMPTY", List.of());
     }
@@ -481,48 +472,10 @@ public class RadioService {
         }
     }
 
-    private List<SongDto> safeFindByMoodEraGenre(String mood, String generation, String genre,
-                                                   String excludedKeywords, int limit) {
-        if (!StringUtils.hasText(mood) || !StringUtils.hasText(generation) || !StringUtils.hasText(genre)) {
-            return List.of();
-        }
-        try {
-            return songDao.findRecommendedSongsByMoodEraGenre(mood, generation, genre, excludedKeywords, limit);
-        } catch (Exception e) {
-            return List.of();
-        }
-    }
-
     private List<SongDto> safeFindByEraAndGenre(String generation, String genre,
                                                   String excludedKeywords, int limit) {
-        if (!StringUtils.hasText(genre)) return List.of();
         try {
             return songDao.findRecommendedSongsByEraAndGenre(generation, genre, excludedKeywords, limit);
-        } catch (Exception e) {
-            return List.of();
-        }
-    }
-
-    private List<SongDto> safeFindByPreference(UserPreferenceDto preference, String generation, String genre,
-                                                String excludedKeywords, int limit) {
-        if (preference == null || !hasAnyPreference(preference)) return List.of();
-        try {
-            return songDao.findRecommendedSongsByPreference(
-                    preference.getPreferredMoods(),
-                    preference.getPreferredArtists(),
-                    generation,
-                    genre,
-                    excludedKeywords,
-                    limit
-            );
-        } catch (Exception e) {
-            return List.of();
-        }
-    }
-
-    private List<SongDto> safeFindTopScore(String generation, String genre, int limit) {
-        try {
-            return songDao.findTopScoreSongs(generation, genre, limit);
         } catch (Exception e) {
             return List.of();
         }
@@ -611,13 +564,6 @@ public class RadioService {
             return requestKeywords.trim() + "," + preferenceKeywords.trim();
         }
         return firstNonBlank(requestKeywords, preferenceKeywords, "");
-    }
-
-    private boolean hasAnyPreference(UserPreferenceDto preference) {
-        return !preference.getPreferredMoods().isEmpty()
-                || !preference.getPreferredGenerations().isEmpty()
-                || !preference.getPreferredGenres().isEmpty()
-                || !preference.getPreferredArtists().isEmpty();
     }
 
     private String firstNonBlank(String... values) {

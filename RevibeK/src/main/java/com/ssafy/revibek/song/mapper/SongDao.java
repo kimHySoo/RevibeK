@@ -23,27 +23,11 @@ public interface SongDao {
                                                           @Param("genre") String genre,
                                                           @Param("excludedKeywords") String excludedKeywords,
                                                           @Param("limit") int limit);
-    List<SongDto> findRecommendedSongsByMoodEraGenre(@Param("mood") String mood,
-                                                      @Param("generation") String generation,
-                                                      @Param("genre") String genre,
-                                                      @Param("excludedKeywords") String excludedKeywords,
-                                                      @Param("limit") int limit);
     // mood 없이 generation/genre만으로 좁히는 단계. generation은 "전체"(ALL)면 null로 건너뛸 수 있지만 genre는 항상 필수.
     List<SongDto> findRecommendedSongsByEraAndGenre(@Param("generation") String generation,
                                                      @Param("genre") String genre,
                                                      @Param("excludedKeywords") String excludedKeywords,
                                                      @Param("limit") int limit);
-    // preference 폴백: mood/artist는 선호도 중 하나만 맞아도 인정하는 OR 조건이지만,
-    // requestGeneration/requestGenre(이번 요청에서 실제 선택한 값)은 항상 AND로 강제한다.
-    List<SongDto> findRecommendedSongsByPreference(@Param("moods") List<String> moods,
-                                                    @Param("artists") List<String> artists,
-                                                    @Param("requestGeneration") String requestGeneration,
-                                                    @Param("requestGenre") String requestGenre,
-                                                    @Param("excludedKeywords") String excludedKeywords,
-                                                    @Param("limit") int limit);
-    List<SongDto> findTopScoreSongs(@Param("generation") String generation,
-                                     @Param("genre") String genre,
-                                     @Param("limit") int limit);
     List<String> selectMoodCodesBySongId(@Param("songId") String songId);
     int deleteSongMoodsNotIn(@Param("songId") String songId, @Param("moodCodes") List<String> moodCodes);
     int insertSongMoodsIgnore(@Param("songId") String songId, @Param("moodCodes") List<String> moodCodes);
