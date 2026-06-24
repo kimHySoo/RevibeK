@@ -1,8 +1,11 @@
 FROM python:3.13-slim
 
 # yt-dlp가 다운로드한 오디오를 WAV로 추출하는 데 ffmpeg가 필요 (requirements.txt에는 없음)
+# yt-dlp가 유튜브 서명 해독(JS 챌린지)에 JS 런타임을 요구하므로 nodejs도 설치
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ffmpeg \
+    && apt-get install -y --no-install-recommends ffmpeg curl \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
