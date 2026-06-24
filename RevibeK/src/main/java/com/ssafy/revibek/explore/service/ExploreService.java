@@ -11,6 +11,7 @@ import com.ssafy.revibek.youtube.service.YoutubeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -33,6 +34,12 @@ public class ExploreService {
     // 주거용 프록시 트래픽 비용 폭증을 막기 위해, 이 길이 이상인 영상은 다운로드를 시도하지 않음 (docs/answer/block.md)
     private static final int MAX_DURATION_SECONDS = 300;
 
+    // generation/genre로 거르고 나면 후보가 줄어들 수 있으므로 필요한 개수보다 넉넉하게 가져온 뒤 필터링한다.
+    private static final int QDRANT_CANDIDATE_POOL_FACTOR = 4;
+
+    // 신규 분석 곡은 genre/era가 "미분류"로 들어가므로(분류 로직 없음), 이 값일 때는 필터링을 건너뛴다.
+    private static final String UNCLASSIFIED = "미분류";
+
     public ExploreResponseDto explore(String youtubeUrl, int limit) {
         String youtubeId = extractYoutubeId(youtubeUrl);
 
@@ -53,10 +60,12 @@ public class ExploreService {
         qdrantService.createCollectionIfNotExists();
         qdrantService.upsertSong(song);
 
-        List<String> similarIds = qdrantService.searchSimilar(song.getId(), limit);
+        SongDto seedSong = song;
+        List<String> similarIds = qdrantService.searchSimilar(song.getId(), limit * QDRANT_CANDIDATE_POOL_FACTOR);
         List<SongDto> similar = similarIds.stream()
             .map(songService::getSongById)
-            .filter(s -> s != null)
+            .filter(s -> s != null && matchesGenerationAndGenre(s, seedSong))
+            .limit(limit)
             .toList();
 
         if (similar.isEmpty()) {
@@ -101,6 +110,26 @@ public class ExploreService {
         log.info("새 곡 분석 및 저장: {}", song.getTitle());
 
         return songService.getSongByYoutubeId(youtubeId);
+    }
+
+    /**
+     * 유사곡 후보가 기준곡(seed)과 generation/genre가 같은지 검사한다.
+     * 기준곡이 미분류 상태("미분류" 또는 비어있음)면 해당 조건은 건너뛴다.
+     */
+    private boolean matchesGenerationAndGenre(SongDto candidate, SongDto seed) {
+        String seedGeneration = seed.getGeneration();
+        if (StringUtils.hasText(seedGeneration) && !UNCLASSIFIED.equals(seedGeneration)
+                && !seedGeneration.equals(candidate.getGeneration())) {
+            return false;
+        }
+
+        String seedGenre = seed.getGenre();
+        if (StringUtils.hasText(seedGenre) && !UNCLASSIFIED.equals(seedGenre)
+                && !seedGenre.equals(candidate.getGenre())) {
+            return false;
+        }
+
+        return true;
     }
 
     private String extractYoutubeId(String url) {

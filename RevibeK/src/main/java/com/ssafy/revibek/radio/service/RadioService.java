@@ -80,7 +80,7 @@ public class RadioService {
 
         // YouTube URL이 있으면 임베딩 기반 Qdrant 검색 우선; 실패하면 DB 폴백
         List<SongDto> qdrantSeeds = StringUtils.hasText(request.getYoutubeUrl())
-                ? findByYoutubeUrlEmbedding(request.getYoutubeUrl(), DEFAULT_RECOMMENDATION_LIMIT)
+                ? findByYoutubeUrlEmbedding(request.getYoutubeUrl(), DEFAULT_RECOMMENDATION_LIMIT, request)
                 : List.of();
 
         List<SongDto> seedSongs;
@@ -337,37 +337,39 @@ public class RadioService {
      * YouTube URL을 분석해 9D 임베딩을 얻고 Qdrant 벡터 검색으로 유사곡을 반환한다.
      * DB에 등록된 곡이면 UUID로 searchSimilar, 미등록이면 FastAPI 실시간 분석 후 searchByVector.
      */
-    private List<SongDto> findByYoutubeUrlEmbedding(String youtubeUrl, int limit) {
+    private List<SongDto> findByYoutubeUrlEmbedding(String youtubeUrl, int limit, RadioCreateRequestDto request) {
         String ytId = extractYoutubeId(youtubeUrl);
 
         // DB에 이미 등록된 곡이고 Qdrant에 벡터가 있으면 UUID 기반 검색 (빠름)
         if (StringUtils.hasText(ytId)) {
             SongDto existing = songDao.selectSongByYoutubeId(ytId);
             if (existing != null && StringUtils.hasText(existing.getId())) {
-                List<String> similarIds = qdrantService.searchSimilar(existing.getId(), limit - 1);
+                // generation/genre로 거르고 나면 후보가 줄어들 수 있으므로 넉넉하게 가져온 뒤 필터링한다.
+                List<String> similarIds = qdrantService.searchSimilar(existing.getId(), (limit - 1) * QDRANT_CANDIDATE_POOL_FACTOR);
                 if (!similarIds.isEmpty()) {
                     List<SongDto> result = new ArrayList<>();
-                    result.add(existing);
+                    result.add(existing); // 사용자가 입력한 곡 자체는 필터 없이 항상 포함
                     for (String id : similarIds) {
                         if (result.size() >= limit) break;
                         if (id.equals(existing.getId())) continue;
                         SongDto s = songService.getSongById(id);
-                        if (s != null) result.add(s);
+                        if (s != null && matchesEraAndGenre(s, request)) result.add(s);
                     }
                     return result;
                 }
             }
         }
 
-        // DB에 없거나 Qdrant 미등록 → FastAPI 실시간 분석 (RestTemplate 3분 타임아웃)
+        // DB에 없거나 Qdrant 미등록 → FastAPI 실시간 분석 (RestTemplate 4분 타임아웃)
         try {
             AnalyzeResponseDto analysis = analysisService.analyzeByUrl(youtubeUrl);
             if (analysis == null || analysis.getEmbedding() == null || analysis.getEmbedding().isEmpty()) {
                 return List.of();
             }
-            return qdrantService.searchByVector(analysis.getEmbedding(), limit).stream()
+            return qdrantService.searchByVector(analysis.getEmbedding(), limit * QDRANT_CANDIDATE_POOL_FACTOR).stream()
                     .map(songService::getSongById)
-                    .filter(s -> s != null)
+                    .filter(s -> s != null && matchesEraAndGenre(s, request))
+                    .limit(limit)
                     .collect(Collectors.toList());
         } catch (Exception e) {
             log.warn("YouTube URL 임베딩 검색 실패: {}", e.getMessage());
