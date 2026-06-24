@@ -267,6 +267,15 @@ public class YoutubeServiceImpl implements YoutubeService {
         }
     }
 
+    @Override
+    public Integer fetchDurationSeconds(String videoId) {
+        if (!enabled || !StringUtils.hasText(apiKey)) {
+            log.info("[YouTube] API disabled or key missing. Skip duration lookup: {}", videoId);
+            return null;
+        }
+        return fetchDurationSeconds(List.of(videoId)).get(videoId);
+    }
+
     private Integer parseDuration(String duration) {
         try {
             java.time.Duration d = java.time.Duration.parse(duration);

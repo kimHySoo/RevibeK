@@ -17,4 +17,10 @@ public interface YoutubeService {
      * API가 비활성화이거나 조회에 실패하면 null을 반환한다.
      */
     YoutubeVideoStatsDto fetchVideoStats(String videoId);
+
+    /**
+     * 단일 영상의 재생시간(초)을 조회한다.
+     * API가 비활성화이거나 조회에 실패하면 null을 반환한다.
+     */
+    Integer fetchDurationSeconds(String videoId);
 }

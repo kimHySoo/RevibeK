@@ -7,6 +7,7 @@ import com.ssafy.revibek.explore.dto.ExploreResponseDto;
 import com.ssafy.revibek.qdrant.QdrantService;
 import com.ssafy.revibek.song.dto.SongDto;
 import com.ssafy.revibek.song.service.SongService;
+import com.ssafy.revibek.youtube.service.YoutubeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -23,10 +24,14 @@ public class ExploreService {
     private final SongService songService;
     private final FastApiClient fastApiClient;
     private final QdrantService qdrantService;
+    private final YoutubeService youtubeService;
 
     private static final Pattern YOUTUBE_ID_PATTERN = Pattern.compile(
         "(?:v=|youtu\\.be/|/shorts/)([a-zA-Z0-9_-]{11})"
     );
+
+    // 주거용 프록시 트래픽 비용 폭증을 막기 위해, 이 길이 이상인 영상은 다운로드를 시도하지 않음 (docs/answer/block.md)
+    private static final int MAX_DURATION_SECONDS = 300;
 
     public ExploreResponseDto explore(String youtubeUrl, int limit) {
         String youtubeId = extractYoutubeId(youtubeUrl);
@@ -35,6 +40,11 @@ public class ExploreService {
         boolean isNew = false;
 
         if (song == null) {
+            Integer durationSeconds = youtubeService.fetchDurationSeconds(youtubeId);
+            if (durationSeconds != null && durationSeconds >= MAX_DURATION_SECONDS) {
+                throw new IllegalArgumentException(
+                    "재생시간이 " + MAX_DURATION_SECONDS + "초 이상인 영상은 분석할 수 없습니다: " + youtubeUrl);
+            }
             song = analyzeAndInsert(youtubeId, youtubeUrl);
             isNew = true;
         }
