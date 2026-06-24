@@ -38,11 +38,19 @@ public class AnalysisServiceImpl implements AnalysisService {
 
     private static final String AUDIO_EMBEDDING_TYPE = "AUDIO_9D";
 
+    // 주거용 프록시 트래픽 비용 폭증을 막기 위해, 이 길이 이상인 영상은 다운로드를 시도하지 않음 (docs/answer/block.md)
+    private static final int MAX_DURATION_SECONDS = 300;
+
     @Override
     public AnalyzeResponseDto analyzeByUrl(String youtubeUrl) {
         String ytId = extractYoutubeId(youtubeUrl);
         if (ytId == null) {
             throw new IllegalArgumentException("유효하지 않은 YouTube URL: " + youtubeUrl);
+        }
+        Integer durationSeconds = youtubeService.fetchDurationSeconds(ytId);
+        if (durationSeconds != null && durationSeconds >= MAX_DURATION_SECONDS) {
+            throw new IllegalArgumentException(
+                "재생시간이 " + MAX_DURATION_SECONDS + "초 이상인 영상은 분석할 수 없습니다: " + youtubeUrl);
         }
         AnalyzeRequestDto request = new AnalyzeRequestDto(ytId, youtubeUrl, "", 0);
         return fastApiClient.analyze(request);
