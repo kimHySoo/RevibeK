@@ -1,8 +1,22 @@
+import os
 import yt_dlp
 from pathlib import Path
 
 # 다운로드 저장 폴더 (프로젝트 루트 기준)
 DOWNLOADS_DIR = Path("downloads")
+
+
+def _build_proxy_url() -> str | None:
+    """환경변수로 주거용 프록시(Residential Proxy) 접속 정보를 구성한다. 미설정 시 None."""
+    host = os.environ.get("PROXY_HOST")
+    port = os.environ.get("PROXY_PORT")
+    username = os.environ.get("PROXY_USERNAME")
+    password = os.environ.get("PROXY_PASSWORD")
+    if not host or not port:
+        return None
+    if username and password:
+        return f"http://{username}:{password}@{host}:{port}"
+    return f"http://{host}:{port}"
 
 
 def download_audio(youtube_url: str, youtube_video_id: str) -> str:
@@ -33,6 +47,10 @@ def download_audio(youtube_url: str, youtube_video_id: str) -> str:
             }
         ],
     }
+
+    proxy_url = _build_proxy_url()
+    if proxy_url:
+        ydl_opts["proxy"] = proxy_url
 
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:

@@ -30,7 +30,7 @@ async function handleLogout() {
 </script>
 
 <template>
-  <header class="app-header">
+  <header v-if="auth.isAuthenticated" class="app-header">
     <div class="container header-inner">
       <router-link to="/" class="brand" aria-label="RevibeK 홈">
         <span class="brand-mark" aria-hidden="true"></span>
@@ -50,14 +50,8 @@ async function handleLogout() {
       </nav>
 
       <div class="header-actions">
-        <template v-if="auth.isAuthenticated">
-          <span class="hello text-muted">{{ auth.user?.nickname || "게스트" }}님</span>
-          <button class="ghost-btn" @click="handleLogout">로그아웃</button>
-        </template>
-        <template v-else>
-          <router-link to="/login" class="ghost-btn">로그인</router-link>
-          <router-link to="/signup" class="solid-btn">회원가입</router-link>
-        </template>
+        <span class="hello text-muted">{{ auth.user?.nickname || "게스트" }}님</span>
+        <button class="ghost-btn" @click="handleLogout">로그아웃</button>
         <button
           class="menu-toggle"
           aria-label="메뉴 열기"
