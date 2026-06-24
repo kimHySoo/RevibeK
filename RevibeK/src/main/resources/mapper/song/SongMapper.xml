@@ -119,9 +119,9 @@
     </sql>
 
     <!--
-        song_moods 기반 신규 추천 쿼리.
-        songs.mood(자유 문자열) 대신 정규화된 song_moods.mood_code로 조회한다.
-        결과가 없을 때만 아래의 기존 mood(레거시 문자열) 기반 쿼리로 폴백한다.
+        song_moods 기반 추천 쿼리(1차). songs.mood(자유 문자열) 대신 정규화된
+        song_moods.mood_code로 조회한다. 결과가 없으면 mood 조건만 빼고
+        findRecommendedSongsByEraAndGenre로 폴백한다.
     -->
     <select id="findRecommendedSongsByMoodCodeEraGenre" resultMap="RadioRecommendationSongResultMap">
         SELECT DISTINCT
@@ -129,180 +129,30 @@
         FROM songs s
         JOIN song_moods sm ON sm.song_id = s.id
         WHERE sm.mood_code = #{moodCode}
-          AND (s.era = #{era} OR s.generation = #{generation})
+          AND s.generation = #{generation}
           AND s.genre = #{genre}
           <if test="excludedKeywords != null and excludedKeywords != ''">
               AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
           </if>
-        ORDER BY s.created_at DESC
+        ORDER BY s.view_count DESC
         LIMIT #{limit}
     </select>
 
-    <select id="findRecommendedSongsByMoodCodeEra" resultMap="RadioRecommendationSongResultMap">
-        SELECT DISTINCT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs s
-        JOIN song_moods sm ON sm.song_id = s.id
-        WHERE sm.mood_code = #{moodCode}
-          AND (s.era = #{era} OR s.generation = #{generation})
-          <if test="excludedKeywords != null and excludedKeywords != ''">
-              AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
-          </if>
-        ORDER BY s.created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByMoodCodeGenre" resultMap="RadioRecommendationSongResultMap">
-        SELECT DISTINCT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs s
-        JOIN song_moods sm ON sm.song_id = s.id
-        WHERE sm.mood_code = #{moodCode}
-          AND s.genre = #{genre}
-          <if test="excludedKeywords != null and excludedKeywords != ''">
-              AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
-          </if>
-        ORDER BY s.created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByMoodCode" resultMap="RadioRecommendationSongResultMap">
-        SELECT DISTINCT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs s
-        JOIN song_moods sm ON sm.song_id = s.id
-        WHERE sm.mood_code = #{moodCode}
-          <if test="excludedKeywords != null and excludedKeywords != ''">
-              AND LOWER(CONCAT(s.title, ' ', s.artist)) NOT REGEXP LOWER(REPLACE(#{excludedKeywords}, ',', '|'))
-          </if>
-        ORDER BY s.created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <!-- 아래는 기존(레거시) songs.mood 문자열 기반 쿼리. song_moods에 결과가 없을 때의 폴백으로 계속 사용한다. -->
-    <select id="findRecommendedSongsByMoodEraGenre" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
-        WHERE mood = #{mood}
-          AND (era = #{era} OR generation = #{generation})
-          AND genre = #{genre}
-          <include refid="ExcludedKeywordCondition"/>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByMoodEra" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
-        WHERE mood = #{mood}
-          AND (era = #{era} OR generation = #{generation})
-          <include refid="ExcludedKeywordCondition"/>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByMoodGenre" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
-        WHERE mood = #{mood}
-          AND genre = #{genre}
-          <include refid="ExcludedKeywordCondition"/>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByMood" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
-        WHERE mood = #{mood}
-          <include refid="ExcludedKeywordCondition"/>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
+    <!-- mood 없이 generation/genre만으로 좁히는 최종 폴백. 둘 다 "전체"(ALL)면 null로 와서 조건이 빠진다. -->
     <select id="findRecommendedSongsByEraAndGenre" resultMap="RadioRecommendationSongResultMap">
         SELECT
             <include refid="RadioRecommendationColumns"/>
         FROM songs
-        WHERE (era = #{era} OR generation = #{generation})
-          AND genre = #{genre}
-          <include refid="ExcludedKeywordCondition"/>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByEra" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
-        WHERE (era = #{era} OR generation = #{generation})
-          <include refid="ExcludedKeywordCondition"/>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByGenre" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
-        WHERE genre = #{genre}
-          <include refid="ExcludedKeywordCondition"/>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findRecommendedSongsByPreference" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
         <where>
-            <trim prefix="(" suffix=")" prefixOverrides="OR">
-                <if test="moods != null and moods.size() > 0">
-                    OR mood IN
-                    <foreach collection="moods" item="item" open="(" separator="," close=")">
-                        #{item}
-                    </foreach>
-                </if>
-                <if test="generations != null and generations.size() > 0">
-                    OR generation IN
-                    <foreach collection="generations" item="item" open="(" separator="," close=")">
-                        #{item}
-                    </foreach>
-                </if>
-                <if test="eras != null and eras.size() > 0">
-                    OR era IN
-                    <foreach collection="eras" item="item" open="(" separator="," close=")">
-                        #{item}
-                    </foreach>
-                </if>
-                <if test="genres != null and genres.size() > 0">
-                    OR genre IN
-                    <foreach collection="genres" item="item" open="(" separator="," close=")">
-                        #{item}
-                    </foreach>
-                </if>
-                <if test="artists != null and artists.size() > 0">
-                    OR artist IN
-                    <foreach collection="artists" item="item" open="(" separator="," close=")">
-                        #{item}
-                    </foreach>
-                </if>
-            </trim>
+            <if test="genre != null and genre != ''">
+                AND genre = #{genre}
+            </if>
+            <if test="generation != null and generation != ''">
+                AND generation = #{generation}
+            </if>
             <include refid="ExcludedKeywordCondition"/>
         </where>
-        ORDER BY created_at DESC
-        LIMIT #{limit}
-    </select>
-
-    <select id="findTopScoreSongs" resultMap="RadioRecommendationSongResultMap">
-        SELECT
-            <include refid="RadioRecommendationColumns"/>
-        FROM songs
-        ORDER BY created_at DESC
+        ORDER BY view_count DESC
         LIMIT #{limit}
     </select>
 

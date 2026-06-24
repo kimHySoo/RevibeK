@@ -226,7 +226,7 @@ onMounted(load)
               >
                 <div class="history-tags">
                   <span class="badge badge-neon">{{ h.mood }}</span>
-                  <span class="badge">{{ h.era }}</span>
+                  <span class="badge">{{ h.generation }}</span>
                   <span class="badge">{{ h.genre }}</span>
                 </div>
                 <p class="history-situation">{{ h.situation }}</p>

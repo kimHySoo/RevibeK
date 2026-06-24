@@ -32,7 +32,7 @@ class AiDjMentServiceTest {
     private RadioCreateRequestDto request() {
         RadioCreateRequestDto request = new RadioCreateRequestDto();
         request.setMood("그리운");
-        request.setEra("2세대");
+        request.setGeneration("2세대");
         request.setGenre("댄스");
         return request;
     }

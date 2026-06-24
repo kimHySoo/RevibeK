@@ -223,7 +223,7 @@ onBeforeUnmount(stopDjMent)
 
           <div class="pr-meta">
             <span v-if="data.mood" class="badge badge-mood">{{ data.mood }}</span>
-            <span v-if="data.era" class="badge">{{ data.era }}</span>
+            <span v-if="data.generation" class="badge">{{ data.generation }}</span>
             <span v-if="data.genre" class="badge">{{ data.genre }}</span>
             <span v-if="data.videoType" class="badge badge-neon">{{ data.videoType }}</span>
           </div>

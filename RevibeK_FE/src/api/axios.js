@@ -11,7 +11,9 @@ const baseURL = import.meta.env.VITE_API_BASE_URL || "/api"
 const api = axios.create({
   baseURL,
   headers: { "Content-Type": "application/json" },
-  timeout: 200000,
+  // nginx proxy_read_timeout(270s)보다 여유있게 설정 — 주거용 프록시로 라디오 생성(yt-dlp 다운로드)이
+  // 1분 이상 걸리는 경우를 감안.
+  timeout: 300000,
 })
 
 // sessionStorage를 쓰는 이유: 탭/브라우저를 닫으면 로그아웃되고, 같은 탭에서의

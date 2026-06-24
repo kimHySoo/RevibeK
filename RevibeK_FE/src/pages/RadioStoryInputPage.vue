@@ -26,8 +26,6 @@ const youtubeUrlInvalid = computed(
   () => !!form.youtubeUrl && !getYoutubeId(form.youtubeUrl)
 )
 
-const videoTypes = ["원곡", "라이브", "커버", "리믹스", "무대", "AI cover"]
-
 const canSubmit = computed(() => form.mood && (form.situation || form.story))
 
 onMounted(() => {
@@ -123,48 +121,28 @@ async function onSubmit() {
           <PromptField v-model="form.story" :maxlength="300" />
         </section>
 
-        <div class="field-grid">
-          <section class="field-block">
-            <label class="field-label">세대</label>
-            <EraChips v-model="form.era" />
-          </section>
-          <section class="field-block">
-            <label class="field-label">영상 타입</label>
-            <div class="select-wrap">
-              <select v-model="form.videoType" class="text-input">
-                <option v-for="t in videoTypes" :key="t" :value="t">{{ t }}</option>
-              </select>
-            </div>
-          </section>
-        </div>
+        <section class="field-block">
+          <label class="field-label">세대</label>
+          <EraChips v-model="form.generation" />
+        </section>
 
         <section class="field-block">
           <label class="field-label">장르</label>
           <GenreChips v-model="form.genre" />
         </section>
 
-        <div class="field-grid">
-          <section class="field-block">
-            <label class="field-label">선호 아티스트 <span class="muted">(선택)</span></label>
-            <input
-              v-model="form.preferredArtist"
-              type="text"
-              class="text-input"
-              placeholder="예) 아이유, 잔나비"
-              maxlength="60"
-            />
-          </section>
-          <section class="field-block">
-            <label class="field-label">제외 키워드 <span class="muted">(선택)</span></label>
-            <input
-              v-model="form.excludedKeywords"
-              type="text"
-              class="text-input"
-              placeholder="예) 시끄러운 곡 제외"
-              maxlength="60"
-            />
-          </section>
-        </div>
+        <!-- 선호 아티스트: 현재 미사용
+        <section class="field-block">
+          <label class="field-label">선호 아티스트 <span class="muted">(선택)</span></label>
+          <input
+            v-model="form.preferredArtist"
+            type="text"
+            class="text-input"
+            placeholder="예) 아이유, 잔나비"
+            maxlength="60"
+          />
+        </section>
+        -->
 
         <section class="field-block">
           <label class="field-label">
@@ -175,7 +153,7 @@ async function onSubmit() {
             type="url"
             class="text-input"
             :class="{ 'input-error': youtubeUrlInvalid }"
-            placeholder="예) https://www.youtube.com/watch?v=..."
+            placeholder="URL 입력 시 세대/장르는 반영되지 않습니다"
           />
           <p v-if="youtubeUrlInvalid" class="field-error">
             올바른 YouTube URL을 입력해주세요.
@@ -303,10 +281,6 @@ async function onSubmit() {
   outline: none;
   border-color: var(--neon-cyan);
   box-shadow: 0 0 0 3px rgba(0, 224, 255, 0.12);
-}
-.select-wrap select {
-  appearance: none;
-  cursor: pointer;
 }
 .save-block {
   gap: 14px;

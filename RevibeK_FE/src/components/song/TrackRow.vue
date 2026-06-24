@@ -24,7 +24,7 @@ const hasVideo = computed(() => !!youtubeId.value)
         <p class="track-title">{{ song.title }}</p>
         <p class="track-artist text-muted">{{ song.artist }}</p>
       </div>
-      <span v-if="song.era" class="badge">{{ song.era }}</span>
+      <span v-if="song.generation || song.era" class="badge">{{ song.generation || song.era }}</span>
       <span v-if="song.genre" class="badge">{{ song.genre }}</span>
       <button
         v-if="hasVideo"

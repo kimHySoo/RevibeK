@@ -7,7 +7,7 @@ export function toSongVM(raw) {
     itemId: raw.itemId || null,
     title: raw.title || "제목 없음",
     artist: raw.artist || "Unknown",
-    era: raw.era || "",
+    generation: raw.generation || "",
     genre: raw.genre || "",
     youtubeUrl: raw.youtubeUrl || "",
     youtubeId: raw.youtubeId || "",

@@ -22,7 +22,8 @@ public class FastApiClient {
     private static RestTemplate buildRestTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10_000);
-        factory.setReadTimeout(180_000);
+        // 주거용 프록시를 거치면 yt-dlp 다운로드가 1분 이상 걸릴 수 있어 여유를 두고 4분으로 설정
+        factory.setReadTimeout(240_000);
         return new RestTemplate(factory);
     }
 

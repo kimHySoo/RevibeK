@@ -26,4 +26,5 @@ export const GENRE_OPTIONS = [
   { label: "힙합", value: "HIPHOP" },
   { label: "아이돌", value: "IDOL" },
   { label: "OST", value: "OST" },
+  { label: "전체", value: "ALL" },
 ]

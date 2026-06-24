@@ -91,9 +91,9 @@ onMounted(run)
               <span class="summary-key">듣고 싶은 분위기</span>
               <span class="summary-value">{{ input.desiredMood }}</span>
             </div>
-            <div v-if="input.era" class="summary-line">
+            <div v-if="input.generation" class="summary-line">
               <span class="summary-key">세대</span>
-              <span class="summary-value">{{ input.era }}</span>
+              <span class="summary-value">{{ input.generation }}</span>
             </div>
             <div v-if="input.genre" class="summary-line">
               <span class="summary-key">장르</span>

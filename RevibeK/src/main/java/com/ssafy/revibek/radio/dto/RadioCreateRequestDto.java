@@ -9,7 +9,7 @@ public class RadioCreateRequestDto {
 
     private String mood;
     private String story;
-    private String era;
+    private String generation;
     private String genre;
     private String situation;
     private String desiredMood;
