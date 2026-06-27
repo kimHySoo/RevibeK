@@ -55,7 +55,7 @@ RevibeK는 사용자가 적은 감정·상황·사연을 받아, 세대(2/3세�
 
 ## 아키텍처
 
-![architecture](docs/architecture.png)
+![architecture](architecture.png)
 
 - 사용자 → Cloudflare → Nginx → Vue 3(SPA) / Spring Boot
 - Spring Boot가 MySQL(데이터)·Qdrant(벡터 검색)·외부 API(YouTube Data API, Spotify, Claude, ChatGPT)를 오케스트레이션
