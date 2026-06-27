@@ -1,227 +1,101 @@
 # 🎵 RevibeK — K-POP AI 라디오 서비스
 
-> AI로 되살린 K-POP 감성 + 개인형 위로 라디오 서비스
+> 오늘 어떤 하루였나요? 사연을 들려주면 AI DJ가 어울리는 K-POP 라디오를 만들어드려요.
+
+**프로젝트 기간**: 2026.05.25 ~ 2026.06.26
+**협업 노션**: [ReVibeK Notion](https://app.notion.com/p/ReVibeK-363ccacbbfc882abae168123324934d9)
+
+> ⚠️ 운영 서버는 종료되었습니다. 아래 화면/문서는 개발 당시 캡처와 코드 기준 정리본입니다.
 
 ---
-## 반드시 먼저 실행할것!!!!
-```
-git pull origin develop
+
+## 소개
+
+RevibeK는 사용자가 적은 감정·상황·사연을 받아, 세대(2/3세대)·장르·바라는 분위기에 맞는 K-POP 곡을 추천하고, Claude 기반 AI DJ 멘트와 TTS 음성을 더해 **개인화된 라디오 세션**을 만들어주는 서비스입니다. 추천된 곡은 자동으로 플레이리스트에 담기고, 사용자는 라디오 사연을 공개해 다른 사람들과 공유(리바이브닝)할 수도 있습니다.
+
+## 핵심 기능
+
+- **사연 기반 라디오 생성**: 감정/상황/세대/장르/선호아티스트/제외키워드 또는 YouTube URL 입력 → mood/era/genre 13단계 DB 폴백 체인으로 시드곡 선정 → Qdrant 벡터 유사도로 최대 8곡까지 확장 → Claude AI DJ 멘트 + TTS 생성까지 한 번의 요청으로 처리
+- **벡터 유사도 검색**: 곡의 오디오 특징(BPM·energy·danceability·loudness·musical key·spectral centroid 등 9차원)을 Qdrant에 색인해 유사곡을 확장 추천. MySQL(`embedding_songs`)이 벡터 본체의 단일 소스, Qdrant는 색인 캐시
+- **플레이리스트**: 라디오 생성 결과를 자동/수동으로 플레이리스트에 저장·관리
+- **곡 둘러보기 / 좋아요 / 리뷰**: 곡 검색·장르 필터, 좋아요, 별점·코멘트 리뷰
+- **리바이브닝(공개 피드)**: 내 라디오 사연을 공개하면 `/revibening` 피드에 노출되어 다른 사용자가 둘러보고 좋아요·팔로우 가능
+- **팔로우 / 청취 계획 / 챌린지**: 사용자 간 팔로우, 청취 계획 관리, K-POP 챌린지 참여
+- **AI 청취 코칭**: 사용자의 청취 패턴을 분석해 감정 경향·세대 선호·인사이트 제공
+- **인증**: 이메일 회원가입/로그인 + Google OAuth2 로그인(`/oauth/callback`에서 토큰 수신)
+
+## 화면
+
+| 사연 입력 | 라디오 생성 결과 | 메인 |
+|---|---|---|
+| ![story](RevibeK_FE/story.png) | ![result](RevibeK_FE/result-final.png) | ![main](RevibeK_FE/main-menu.png) |
+
+| 생성 중 | 플레이리스트 저장 결과 | 마이페이지 |
+|---|---|---|
+| ![generating](RevibeK_FE/generating-live.png) | ![playlist-result](RevibeK_FE/playlist-result.png) | ![mypage](RevibeK_FE/mypage.png) |
+
+| 곡 둘러보기 | 플레이리스트 목록 | 회원가입 |
+|---|---|---|
+| ![songs](RevibeK_FE/songs.png) | ![playlists](RevibeK_FE/playlists.png) | ![signup](RevibeK_FE/signup-banner.png) |
+
+## 주요 화면 / 라우트
+
+| 페이지 | 경로 | 설명 |
+|---|---|---|
+| 사연 입력 | `/radio/story` (루트 `/`가 리다이렉트) | 사이트 진입 화면. 감정·상황·세대·장르 등 입력 |
+| 로그인 / OAuth 콜백 | `/login`, `/oauth/callback` | 이메일 로그인 + Google OAuth2 |
+| 회원가입 | `/signup` | 이메일 인증 3단계 스테퍼 |
+| 메인 홈 | `/main` | 기능 메뉴 그리드, 이어서 만들기 카드 |
+| 라디오 생성중 / 결과 | `/radio/generating`, `/radio/result/:id` | 5단계 진행 표시 → DJ 멘트/TTS/추천곡 결과 |
+| 플레이리스트 결과 / 목록 / 상세 | `/playlist/result/:id`, `/playlists`, `/playlists/:id` | 자동 저장 결과 확인, 목록·상세 관리 |
+| 리바이브닝 | `/revibening` | 공개된 라디오 사연 피드(최신순/인기순), 좋아요·팔로우 |
+| 곡 둘러보기 | `/songs` | 곡 검색, 장르 필터, 좋아요/플레이리스트 저장 |
+| 마이페이지 | `/me?tab=likes\|radio\|reviews\|follow\|plan` | 좋아요·라디오기록(공개 토글)·리뷰·팔로우·청취계획 탭 |
+
+
+## 아키텍처
+
+![architecture](docs/architecture.png)
+
+- 사용자 → Cloudflare → Nginx → Vue 3(SPA) / Spring Boot
+- Spring Boot가 MySQL(데이터)·Qdrant(벡터 검색)·외부 API(YouTube Data API, Spotify, Claude, ChatGPT)를 오케스트레이션
+- 음원 분석은 FastAPI가 전담: `yt-dlp` → `decodo` → YouTube → `librosa`(오디오 특징/임베딩 추출)
+- 전체 스택은 Docker Compose로 구성, Amazon EC2에 배포
+
+```text
+[Spring Boot] POST /api/analysis/{songId} / by-url / EmbeddingController.search-by-url
+      │  RestTemplate
+      ▼
+[FastAPI] POST /api/ai/analyze
+      │  yt-dlp 다운로드 → librosa 분석 → 9차원 임베딩 계산
+      ▼
+[Spring Boot] analyzed_songs / embedding_songs(AUDIO_9D) 저장 → QdrantService.upsert
 ```
 
-## 🛠 기술 스택
+FastAPI는 분석만 전담하고, DB·Qdrant 저장은 전부 Spring Boot가 소유한다.
+
+| 디렉터리 | 스택 | 역할 |
+|---|---|---|
+| `RevibeK/` (본 디렉터리) | Spring Boot 4 + MyBatis + MySQL + Spring Security(JWT/OAuth2) | 메인 백엔드 API |
+| `RevibeK_AI/` | FastAPI(Python) | 음악 분석 서버. `yt-dlp`/`librosa`로 오디오 특징·9차원 임베딩 추출 |
+| `RevibeK_FE/` | Vue 3 + Vite + Pinia + vue-router | 프론트엔드 SPA |
+
+### 백엔드 패키지 구조 (`com.ssafy.revibek`)
+
+도메인별로 패키지를 분리한 Spring Boot 모놀리스(`ai`/`analysis`/`auth`/`challenge`/`coaching`/`embedding`/`explore`/`follow`/`like`/`mood`/`plan`/`playlist`/`preference`/`qdrant`/`radio`/`review`/`song`/`spotify`/`tts`/`user`/`usersong`/`youtube` + 공통 `common`/`config`)으로 구성했다. `radio`가 추천·DJ멘트·TTS·공개피드를 묶는 핵심 도메인이고, `analysis`/`embedding`/`qdrant`가 FastAPI 연동·벡터 적재를 담당한다.
+
+## 기술 스택
 
 | 구분 | 기술 |
 |---|---|
-| Backend | Spring Boot 3.x, MyBatis, Spring Security, JWT |
-| Build | Maven |
-| Database | MySQL 8.0 |
-| Frontend | Vue |
-| External API | YouTube Data API v3, Claude API, Clova TTS |
+| Backend | Spring Boot 4, MyBatis, MySQL 8.0, Spring Security(JWT + OAuth2) |
+| AI 분석 | FastAPI, yt-dlp, librosa, Claude(GMS), Google TTS |
+| Frontend | Vue 3, Vite, Pinia, vue-router |
+| 인프라 | Docker Compose, Amazon EC2, Nginx, Cloudflare |
 
----
-
-## 📁 패키지 구조
-
-```
-com.ssafy.revibek
-├── config          # Security, Swagger, CORS 설정
-├── interceptor     # JWT 인증 인터셉터
-├── model
-│   ├── dao         # MyBatis DB 접근 (Mapper)
-│   ├── dto         # 요청/응답 데이터 객체
-│   └── service     # 비즈니스 로직
-└── controller      # API 엔드포인트 (추가 예정)
-```
-
----
-
-## 🌿 브랜치 전략
-
-```
-main        → 배포용. 직접 push 금지
-develop     → 통합 브랜치. PR로만 머지
-feature/*   → 기능별 작업 브랜치
-hotfix/*    → 긴급 버그 수정
-```
-
-### 브랜치 담당
-
-| 브랜치 | 담당 | 내용 |
-|---|---|---|
-| feature/song | 김형수 | 노래 CRUD · 검색 |
-| feature/recommend | 김형수 | 추천 엔진 |
-| feature/playlist | 김형수 | 플레이리스트 |
-| feature/user | 김재원 | 유저 · 인증 · OAuth2 |
-| feature/radio | 김재원 | AI 라디오 · TTS |
-| feature/user-song | 김재원 | 보관함 · 저장 · 평가 |
-
----
-
-## 🚀 시작하기
-
-### 1. 레포지토리 clone
-
-```bash
-git clone https://github.com/kimHySoo/RevibeK.git
-cd RevibeK
-```
-
-### 2. 브랜치 확인
-
-```bash
-git branch -a
-```
-
-아래처럼 나오면 정상이에요.
-
-```
-* main
-  remotes/origin/main
-  remotes/origin/develop
-```
-
-### 3. develop 브랜치로 이동
-
-```bash
-git checkout develop
-```
-
-develop이 로컬에 없으면 아래처럼 해요.
-
-```bash
-git fetch origin
-git checkout -b develop origin/develop
-```
-
-### 4. develop 최신 상태로 업데이트
-
-```bash
-git pull origin develop
-```
-
-### 5. 내 feature 브랜치 생성
-
-담당 브랜치에 맞게 생성해요.
-
-```bash
-# 예시 — 유저 담당이면
-git checkout -b feature/user
-
-# 노래 담당이면
-git checkout -b feature/song
-```
-
-### 6. 브랜치 확인
-
-```bash
-git branch
-```
-
-아래처럼 나오면 성공이에요.
-
-```
-  main
-  develop
-* feature/user
-```
-
----
-
-## 💻 Eclipse / IntelliJ 세팅
-
-### 1. 프로젝트 열기
-
-**Eclipse**
-```
-File → Import → Maven → Existing Maven Projects
-→ clone한 폴더 선택 → pom.xml 인식 확인 → Finish
-```
-
-**IntelliJ**
-```
-File → Open → clone한 폴더 선택
-→ pom.xml 자동 인식 후 Maven sync 완료되면 실행 가능
-```
-
-### 2. application-secret.properties 생성
-
-`src/main/resources/` 아래에 `application-secret.properties` 파일을 직접 만들어요.
-(팀장에게 내용 따로 받아서 입력)
-
-```properties
-spring.datasource.url=jdbc:mysql://localhost:3306/kpop_radio
-spring.datasource.username=root
-spring.datasource.password=여기에_비밀번호_입력
-youtube.api.key=여기에_키_입력
-claude.api.key=여기에_키_입력
-```
-
-> ⚠️ 이 파일은 절대 GitHub에 올리면 안 돼요. `.gitignore`에 이미 등록되어 있어요.
-
-### 3. MySQL DB 생성
-
-sql폴더 확인
-
-### 4. 서버 실행 후 Swagger 확인
-
-```
-http://localhost:8080/swagger-ui/index.html
-```
-
----
-
-## 📝 작업 흐름
-
-### 매일 작업 시작 전 — develop 최신화
-
-```bash
-git checkout develop
-git pull origin develop
-git checkout feature/내브랜치
-git merge develop
-```
-
-### 작업 후 커밋 & push
-
-```bash
-git add .
-git commit -m "feat: 유저 로그인 API 구현"
-git push origin feature/user
-```
-
-### PR 생성
-
-GitHub에서 `feature/user → develop` 으로 PR 생성해요.
-상대방 리뷰 후 머지해요. 리뷰 없이 혼자 머지하지 않아요.
-
----
-
-## 📌 커밋 메시지 규칙
-
-| 태그 | 설명 | 예시 |
-|---|---|---|
-| feat | 새 기능 추가 | feat: 노래 검색 API 구현 |
-| fix | 버그 수정 | fix: 추천 점수 계산 오류 수정 |
-| refactor | 리팩토링 | refactor: SongService 구조 개선 |
-| docs | 문서 수정 | docs: Swagger 명세 추가 |
-| chore | 설정 변경 | chore: Maven 의존성 추가 |
-| test | 테스트 추가 | test: SongService 단위 테스트 |
-
----
-
-## ⚠️ 협업 규칙
-
-1. `main`, `develop` 직접 push 절대 금지 — PR로만 머지
-2. PR 머지 전 상대방 코드 리뷰 필수
-3. 매일 아침 develop pull 후 작업 시작
-4. API 키, 비밀번호 절대 커밋 금지
-5. 충돌 발생 시 혼자 해결하지 말고 팀원과 함께 확인
-
----
-
-## 👥 팀원
+## 팀 구성
 
 | 이름 | 역할 | 담당 |
 |---|---|---|
-| 김형수 | 백엔드 | 노래 · 추천 · 플레이리스트 |
-| 김재원 | 백엔드 | 유저 · 라디오 · 보관함 |
+| 김재원 | 백엔드 | 유저 · 라디오 |
+| 김형수 | 백엔드 | 노래 · 추천 |
